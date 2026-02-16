@@ -1,40 +1,11 @@
 import { motion } from 'framer-motion'
-import { useEffect, useMemo, useState, createContext, useContext, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useState } from 'react'
 
-import { createStudent, getDashboardSummary } from '../services/api'
+import { createStudent, getDashboardSummary, getStudents, deleteStudent } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
+import { useAuth } from '../context/AuthContext'
 
-// Global dropdown context to prevent multiple dropdowns from opening
-const DropdownContext = createContext({
-  openDropdownId: null,
-  setOpenDropdownId: () => {}
-})
-
-function useDropdownContext() {
-  return useContext(DropdownContext)
-}
-
-// Dropdown Provider component
-function DropdownProvider({ children }) {
-  const [openDropdownId, setOpenDropdownId] = useState(null)
-
-  return (
-    <DropdownContext.Provider value={{ openDropdownId, setOpenDropdownId }}>
-      {children}
-    </DropdownContext.Provider>
-  )
-}
-
-// Frontend subject mapping for CME department
-const SUBJECTS_BY_SEMESTER = {
-  '1st sem': ['MPC', 'C Language', 'English', 'BCE'],
-  '3rd sem': ['DSA', 'M2', 'DE', 'OS', 'DBMS'],
-  '4th sem': ['SE', 'Web Technology', 'Computer Organization', 'Java', 'CN & CS'],
-  '5th sem': ['IME', 'BD & CC', 'AP', 'IoT', 'Python']
-}
-
-// Department options with disabled state
+// Department options - show all branches but only enable CME
 const DEPARTMENTS = [
   { value: 'cme', label: 'CME', disabled: false },
   { value: 'ece', label: 'ECE', disabled: true },
@@ -45,212 +16,60 @@ const DEPARTMENTS = [
   { value: 'architecture', label: 'Architecture', disabled: true }
 ]
 
-const SEMESTERS = ['1st sem', '3rd sem', '4th sem', '5th sem']
+const SEMESTERS = ['1st semester', '3rd semester', '4th semester', '5th semester']
 const SHIFTS = ['1st shift', '2nd shift']
+// Student form options - CME only with correct years
+const STUDENT_DEPARTMENTS = ['CME']
+const STUDENT_YEARS = ['1st year', '2nd year', '3rd year']
+const STUDENT_SEMESTERS = ['1st semester', '2nd semester', '3rd semester', '4th semester', '5th semester', '6th semester']
+const STUDENT_SHIFTS = ['1st shift', '2nd shift']
 
-// Advanced Dropdown Component
-function AdvancedDropdown({ 
+// Simple Dropdown Component - Reliable and bug-free
+function SimpleDropdown({ 
   label, 
   value, 
   onChange, 
   options, 
   placeholder, 
   disabled = false,
-  helperText = '',
-  showTooltip = false 
+  helperText = ''
 }) {
-  const { openDropdownId, setOpenDropdownId } = useDropdownContext()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
-  const buttonRef = useRef(null) // Proper ref for the button
-  
-  // Generate unique ID for this dropdown
-  const dropdownId = `dropdown-${label.replace(/\s+/g, '-').toLowerCase()}`
-  const isOpen = openDropdownId === dropdownId
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isOpen && !event.target.closest('.dropdown-container')) {
-        setOpenDropdownId(null)
-        setSearchTerm('')
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, setOpenDropdownId])
-
-  // Close dropdown when pressing Escape key
-  useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === 'Escape' && isOpen) {
-        setOpenDropdownId(null)
-        setSearchTerm('')
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, setOpenDropdownId])
-
-  // Update dropdown position when open
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const updatePosition = () => {
-        const rect = buttonRef.current.getBoundingClientRect()
-        setDropdownPosition({
-          top: rect.bottom + window.scrollY + 8, // 8px gap
-          left: rect.left + window.scrollX,
-          width: rect.width
-        })
-      }
-
-      updatePosition()
-      
-      // Update on resize and scroll
-      window.addEventListener('resize', updatePosition)
-      window.addEventListener('scroll', updatePosition)
-      
-      return () => {
-        window.removeEventListener('resize', updatePosition)
-        window.removeEventListener('scroll', updatePosition)
-      }
-    }
-  }, [isOpen])
-
-  const filteredOptions = options.filter(option => 
-    option.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const selectedOption = options.find(opt => 
-    (opt.value || opt) === value
-  )
-
-  const handleSelect = (option, event) => {
-    event?.stopPropagation()
-    event?.preventDefault()
-    console.log('handleSelect called with:', option) // Debug log
-    if (!option.disabled) {
-      const newValue = option.value || option
-      console.log('Calling onChange with:', newValue) // Debug log
-      onChange(newValue)
-      setOpenDropdownId(null)
-      setSearchTerm('')
-    }
-  }
-
-  const toggleDropdown = () => {
-    if (!disabled) {
-      setOpenDropdownId(isOpen ? null : dropdownId)
-      if (isOpen) {
-        setSearchTerm('')
-      }
-    }
-  }
-
   return (
-    // Main container with relative positioning for dropdown absolute positioning
-    <div className="relative dropdown-container">
+    <div className="relative">
       <label className="block text-xs font-medium text-slate-700 mb-1">
         {label}
       </label>
-      {/* Button container - relative for dropdown positioning */}
-      <div className="relative">
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={toggleDropdown}
-          disabled={disabled}
-          className={`
-            w-full rounded-xl border px-3 py-2 text-sm text-left transition-all
-            flex items-center justify-between
-            ${disabled 
-              ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
-              : 'border-blue-200 bg-white/80 hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white cursor-pointer'
-            }
-          `}
-        >
-          <span className={selectedOption ? 'text-slate-900' : 'text-slate-500'}>
-            {selectedOption ? (selectedOption.label || selectedOption) : placeholder}
-          </span>
-          <svg 
-            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* 
-          PORTAL-BASED DROPDOWN MENU
-          Renders dropdown menu outside Framer Motion's transform context
-          This ensures proper z-index stacking and prevents clipping
-        */}
-        {isOpen && !disabled && createPortal(
-          <div 
-            className="fixed z-[9999] bg-white border border-blue-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
-            style={{
-              top: `${dropdownPosition.top}px`,
-              left: `${dropdownPosition.left}px`,
-              width: `${dropdownPosition.width}px`
-            }}
-            onClick={(e) => e.stopPropagation()} // Prevent event bubbling
-          >
-            {options.length > 8 && (
-              <div className="p-2 border-b border-blue-100">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            )}
-            <div className="max-h-48 overflow-y-auto">
-              {filteredOptions.map((option, index) => {
-                const isSelected = (option.value || option) === value
-                const isDisabled = option.disabled || false
-                
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      console.log('Button mouseDown for option:', option) // Debug log
-                      handleSelect(option, e)
-                    }}
-                    disabled={isDisabled}
-                    className={`
-                      w-full px-3 py-2 text-sm text-left transition-colors
-                      flex items-center justify-between
-                      ${isSelected 
-                        ? 'bg-primary-blue text-white' 
-                        : isDisabled
-                        ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
-                        : 'text-slate-700 hover:bg-blue-50'
-                      }
-                    `}
-                  >
-                    <span>{option.label || option}</span>
-                    {isDisabled && (
-                      <span className="text-xs text-slate-400">Not available</span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>,
-          document.body // Render portal to document.body to escape transform context
-        )}
-      </div>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={`
+          w-full rounded-xl border px-3 py-2 text-sm transition-all
+          ${disabled 
+            ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
+            : 'border-blue-200 bg-white/80 hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white cursor-pointer'
+          }
+        `}
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((option, index) => {
+          const optionValue = typeof option === 'string' ? option : option.value
+          const optionLabel = typeof option === 'string' ? option : (option.label || option.value || option)
+          const isDisabled = typeof option === 'object' ? option.disabled : false
+          
+          return (
+            <option 
+              key={`${optionValue}-${index}`}
+              value={optionValue}
+              disabled={isDisabled}
+            >
+              {optionLabel}
+            </option>
+          )
+        })}
+      </select>
       {helperText && (
         <p className="text-xs text-slate-500 mt-1">{helperText}</p>
       )}
@@ -284,6 +103,7 @@ function Card({ title, value, sub, icon }) {
 
 export default function Dashboard() {
   const { selection, setSelection } = useClassSelection()
+  const { faculty } = useAuth() // Add safety check for faculty data
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
 
   const [summary, setSummary] = useState(null)
@@ -291,32 +111,35 @@ export default function Dashboard() {
   const [error, setError] = useState('')
 
   const [studentForm, setStudentForm] = useState({
-    rollNo: '',
+    pin: '',
+    shortPin: '',
     name: '',
     department: '',
     year: '',
-    section: '',
+    semester: '',
+    shift: '',
   })
   const [savingStudent, setSavingStudent] = useState(false)
   const [studentMsg, setStudentMsg] = useState('')
+  const [students, setStudents] = useState([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [deletePin, setDeletePin] = useState('')
+  const [deletingStudent, setDeletingStudent] = useState(false)
 
-  // Dynamic subject options based on selected semester
+  // Dynamic subject options based on selected semester (removed - not needed for student management)
   const subjectOptions = useMemo(() => {
-    if (!selection.year || selection.department !== 'cme') return []
-    return SUBJECTS_BY_SEMESTER[selection.year] || []
-  }, [selection.year, selection.department])
+    return [] // Return empty array since subject dropdown was removed
+  }, [])
 
   // Check if can load summary
-  const canLoad = useMemo(
-    () => Boolean(
+  const canLoad = useMemo(() => {
+    return (
       selection.department === 'cme' && 
       selection.year && 
-      selection.section &&
-      selection.subject &&
+      selection.section && 
       date
-    ),
-    [selection, date]
-  )
+    )
+  }, [selection, date])
 
   // Handle department change - reset dependent fields
   const handleDepartmentChange = (value) => {
@@ -329,25 +152,19 @@ export default function Dashboard() {
     })
   }
 
-  // Handle semester change - reset subject
+  // Handle semester change - reset dependent fields
   const handleSemesterChange = (value) => {
+    console.log('🔍 Semester changed to:', value) // Debug semester change
     setSelection({ 
       ...selection, 
       year: value,
-      subject: ''
-    })
-  }
-
-  // Handle subject change
-  const handleSubjectChange = (value) => {
-    setSelection({ 
-      ...selection, 
-      subject: value
+      section: ''
     })
   }
 
   // Handle shift change
   const handleShiftChange = (value) => {
+    console.log('🔍 Shift changed to:', value) // Debug shift change
     setSelection({ 
       ...selection, 
       section: value
@@ -360,12 +177,63 @@ export default function Dashboard() {
     setLoading(true)
 
     try {
-      const data = await getDashboardSummary({ ...selection, date })
-      setSummary(data)
+      const payload = {
+        department: selection.department,
+        year: selection.year, // frontend stores semester in selection.year
+        semester: selection.year, // also send semester explicitly
+        shift: selection.section, // frontend stores shift in selection.section
+        date
+      }
+      console.log('🔍 Dashboard API payload:', payload)
+      const response = await getDashboardSummary(payload)
+      console.log('🔍 Dashboard API response:', response)
+      // Handle both response formats: direct data or wrapped in summary
+      const summaryData = response.summary || response
+      setSummary(summaryData)
     } catch (err) {
+      console.error('❌ Dashboard API error:', err)
       setError(err?.response?.data?.message || 'Failed to load dashboard')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadStudents() {
+    console.log('🔍 Current selection state:', selection) // Debug selection state
+    
+    if (!selection.department || !selection.year || !selection.section) {
+      setError('Please select department, semester, and shift to load students')
+      return
+    }
+    
+    setLoadingStudents(true)
+    setError('')
+    
+    // Map frontend selection to backend query params
+    const params = {
+      department: selection.department,
+      semester: selection.year, // frontend stores semester in selection.year
+      shift: selection.section  // frontend stores shift in selection.section
+    }
+    
+    // Debug the actual selection values
+    console.log('🔍 Selection values:', {
+      department: selection.department,
+      semester: selection.year,
+      shift: selection.section
+    })
+    
+    console.log('🔍 Loading students with params:', params)
+    
+    try {
+      const { students: data } = await getStudents(params)
+      setStudents(data || [])
+      console.log(`✅ Loaded ${data?.length || 0} students`)
+    } catch (err) {
+      console.error('❌ Load students error:', err)
+      setError(err?.response?.data?.message || 'Failed to load students')
+    } finally {
+      setLoadingStudents(false)
     }
   }
 
@@ -377,7 +245,11 @@ export default function Dashboard() {
     try {
       await createStudent(studentForm)
       setStudentMsg('Student added')
-      setStudentForm({ rollNo: '', name: '', department: '', year: '', section: '' })
+      setStudentForm({ pin: '', shortPin: '', name: '', department: '', year: '', semester: '', shift: '' })
+      // Reload students list
+      if (selection.department && selection.year && selection.section) {
+        loadStudents()
+      }
     } catch (err) {
       setStudentMsg(err?.response?.data?.message || 'Failed to add student')
     } finally {
@@ -385,9 +257,32 @@ export default function Dashboard() {
     }
   }
 
+  async function onDeleteStudent() {
+    if (!deletePin) {
+      setError('Please enter a PIN to delete')
+      return
+    }
+    
+    setDeletingStudent(true)
+    setError('')
+    
+    try {
+      await deleteStudent(deletePin)
+      setStudentMsg(`Student ${deletePin} deleted successfully`)
+      setDeletePin('')
+      // Reload students list
+      if (selection.department && selection.year && selection.section) {
+        loadStudents()
+      }
+    } catch (err) {
+      setStudentMsg(err?.response?.data?.message || 'Failed to delete student')
+    } finally {
+      setDeletingStudent(false)
+    }
+  }
+
   return (
-    <DropdownProvider>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
       <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Class & Date</div>
         <div className="mt-1 text-sm text-slate-600">
@@ -395,7 +290,7 @@ export default function Dashboard() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 overflow-visible">
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Department"
             value={selection.department}
             onChange={handleDepartmentChange}
@@ -404,7 +299,7 @@ export default function Dashboard() {
             helperText="Only CME is available"
           />
           
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Semester"
             value={selection.year}
             onChange={handleSemesterChange}
@@ -414,23 +309,13 @@ export default function Dashboard() {
             helperText={!selection.department ? "Select department first" : "Select semester"}
           />
           
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Shift"
             value={selection.section}
             onChange={handleShiftChange}
             options={SHIFTS}
             placeholder="Select Shift"
             helperText="Select class shift"
-          />
-          
-          <AdvancedDropdown
-            label="Subject"
-            value={selection.subject}
-            onChange={handleSubjectChange}
-            options={subjectOptions}
-            placeholder="Select Subject"
-            disabled={!selection.year || selection.department !== 'cme'}
-            helperText={!selection.year ? "Select semester first" : "Available subjects for CME"}
           />
           
           <div>
@@ -455,6 +340,14 @@ export default function Dashboard() {
           {loading ? 'Loading...' : 'Load Summary'}
         </button>
 
+        <button
+          onClick={loadStudents}
+          disabled={loadingStudents || !selection.department || !selection.year || !selection.section}
+          className="mt-4 ml-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50"
+        >
+          {loadingStudents ? 'Loading...' : 'Load Students'}
+        </button>
+
         {error ? (
           <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
             {error}
@@ -475,7 +368,7 @@ export default function Dashboard() {
         />
         <Card
           title="Today's Attendance"
-          value={loading ? '…' : summary ? `${summary.todaysAttendance.present}/${summary.todaysAttendance.totalMarked}` : '-'}
+          value={loading ? '…' : summary ? `${summary.todaysAttendance?.present || 0}/${summary.todaysAttendance?.totalMarked || 0}` : '-'}
           sub="Present / Marked"
           icon={
             <svg className="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -485,7 +378,7 @@ export default function Dashboard() {
         />
         <Card
           title="Monthly Average"
-          value={loading ? '…' : summary ? `${summary.monthlyAverage}%` : '-'}
+          value={loading ? '…' : summary ? `${summary.monthlyAverage || 0}%` : '-'}
           sub="Current month (subject-wise)"
           icon={
             <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -493,73 +386,159 @@ export default function Dashboard() {
             </svg>
           }
         />
+        <Card
+          title="Loaded Students"
+          value={loadingStudents ? '…' : students.length}
+          sub="In current class"
+          icon={
+            <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21v-2a4 4 0 00-8 0H5a4 4 0 00-8 0v2a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          }
+        />
       </div>
+
+      {students.length > 0 && (
+        <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+          <div className="text-base font-semibold text-primary-blue mb-4">Students List ({students.length})</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PIN</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Department</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Semester</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shift</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {students.slice(0, 15).map((student) => (
+                  <tr key={student._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.pin}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.department}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.semester}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.shift}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {students.length > 15 && (
+              <div className="mt-4 text-sm text-gray-500 text-center">
+                Showing 15 of {students.length} students
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Student Management</div>
-        <div className="mt-1 text-sm text-slate-600">Add students to the system.</div>
+        <div className="mt-1 text-sm text-slate-600">Add or remove students from the system.</div>
 
-        <form onSubmit={onAddStudent} id="student-form" className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <input
-            value={studentForm.rollNo}
-            onChange={(e) => setStudentForm({ ...studentForm, rollNo: e.target.value })}
-            className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            placeholder="Roll No"
-            required
-          />
-          <input
-            value={studentForm.name}
-            onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
-            className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            placeholder="Name"
-            required
-          />
-          <input
-            value={studentForm.department}
-            onChange={(e) => setStudentForm({ ...studentForm, department: e.target.value })}
-            className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            placeholder="Department"
-            required
-          />
-          <input
-            value={studentForm.year}
-            onChange={(e) => setStudentForm({ ...studentForm, year: e.target.value })}
-            className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            placeholder="Year"
-            required
-          />
-          <input
-            value={studentForm.section}
-            onChange={(e) => setStudentForm({ ...studentForm, section: e.target.value })}
-            className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
-            placeholder="Section"
-            required
-          />
-        </form>
+        <div className="mt-4 grid grid-cols-1 gap-4">
+          {/* Add Student Form */}
+          <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+            <div className="text-base font-semibold text-primary-blue mb-4">Add Student</div>
+            <form onSubmit={onAddStudent} id="student-form" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <input
+                value={studentForm.pin}
+                onChange={(e) => setStudentForm({ ...studentForm, pin: e.target.value })}
+                className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                placeholder="PIN (e.g., 25010-CM-001)"
+                required
+              />
+              <input
+                value={studentForm.name}
+                onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
+                className="rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                placeholder="Name"
+                required
+              />
+              <SimpleDropdown
+                label="Department"
+                value={studentForm.department}
+                onChange={(value) => setStudentForm({ ...studentForm, department: value })}
+                options={STUDENT_DEPARTMENTS}
+                placeholder="Select Department"
+              />
+              <SimpleDropdown
+                label="Year"
+                value={studentForm.year}
+                onChange={(value) => setStudentForm({ ...studentForm, year: value })}
+                options={STUDENT_YEARS}
+                placeholder="Select Year"
+              />
+              <SimpleDropdown
+                label="Semester"
+                value={studentForm.semester}
+                onChange={(value) => setStudentForm({ ...studentForm, semester: value })}
+                options={STUDENT_SEMESTERS}
+                placeholder="Select Semester"
+              />
+              <SimpleDropdown
+                label="Shift"
+                value={studentForm.shift}
+                onChange={(value) => setStudentForm({ ...studentForm, shift: value })}
+                options={STUDENT_SHIFTS}
+                placeholder="Select Shift"
+              />
+            </form>
 
-        <div className="mt-4 flex items-center justify-between">
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            type="submit"
-            form="student-form"
-            disabled={savingStudent}
-            className="rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50"
-          >
-            {savingStudent ? 'Adding...' : 'Add Student'}
-          </motion.button>
+            <div className="mt-4 flex items-center justify-between">
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                form="student-form"
+                disabled={savingStudent}
+                className="rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50"
+              >
+                {savingStudent ? 'Adding...' : 'Add Student'}
+              </motion.button>
 
-          {studentMsg && (
-            <div className={`rounded-lg border px-3 py-2 text-sm ${
-              studentMsg.includes('Failed') 
-                ? 'border-red-200 bg-red-50 text-red-600' 
-                : 'border-green-200 bg-green-50 text-green-600'
-            }`}>
-              {studentMsg}
+              {studentMsg && (
+                <div className={`rounded-lg border px-3 py-2 text-sm ${
+                  studentMsg.includes('Failed') 
+                    ? 'border-red-200 bg-red-50 text-red-600' 
+                    : 'border-green-200 bg-green-50 text-green-600'
+                }`}>
+                  {studentMsg}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Delete Student Form */}
+          <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+            <div className="text-base font-semibold text-primary-blue mb-4">Remove Student</div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Student PIN to Delete
+                </label>
+                <input
+                  type="text"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  className="w-full rounded-xl border border-red-200 bg-white/80 px-3 py-2 text-sm outline-none transition-all focus:border-red-400 focus:ring-2 focus:ring-red-200 focus:bg-white"
+                  placeholder="Enter PIN to delete (e.g., 25010-CM-001)"
+                />
+                <p className="text-xs text-slate-500 mt-1">This action cannot be undone!</p>
+              </div>
+
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={onDeleteStudent}
+                disabled={deletingStudent || !deletePin}
+                className="w-full rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-300 disabled:opacity-50"
+              >
+                {deletingStudent ? 'Deleting...' : 'Delete Student'}
+              </motion.button>
+            </div>
+          </div>
         </div>
       </div>
     </motion.div>
-    </DropdownProvider>
   )
 }

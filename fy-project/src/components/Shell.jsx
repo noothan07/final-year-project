@@ -42,7 +42,7 @@ export default function Shell() {
 
           <nav className="hidden md:flex items-center space-x-1">
             <NavItem to="/attendance">Attendance</NavItem>
-            <NavItem to="/">Dashboard</NavItem>
+            <NavItem to="/dashboard">Dashboard</NavItem>
             <NavItem to="/reports">Reports</NavItem>
           </nav>
 
@@ -76,7 +76,7 @@ export default function Shell() {
             Attendance
           </button>
           <button
-            onClick={() => window.location.href = '/'}
+            onClick={() => window.location.href = '/dashboard'}
             className={`flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium transition-all ${
               window.location.pathname === '/'
                 ? 'bg-primary-blue text-white shadow-md'

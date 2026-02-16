@@ -1,28 +1,59 @@
 import { motion } from 'framer-motion'
-import { useEffect, useMemo, useState, createContext, useContext, useRef } from 'react'
-import { createPortal } from 'react-dom'
+import { useEffect, useMemo, useState } from 'react'
 
 import { getMonthlyReport, downloadMonthlyExcel } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
 
-// Global dropdown context to prevent multiple dropdowns from opening
-const DropdownContext = createContext({
-  openDropdownId: null,
-  setOpenDropdownId: () => {}
-})
-
-function useDropdownContext() {
-  return useContext(DropdownContext)
-}
-
-// Dropdown Provider component
-function DropdownProvider({ children }) {
-  const [openDropdownId, setOpenDropdownId] = useState(null)
-
+// Simple Dropdown Component - Reliable and bug-free
+function SimpleDropdown({ 
+  label, 
+  value, 
+  onChange, 
+  options, 
+  placeholder, 
+  disabled = false,
+  helperText = ''
+}) {
   return (
-    <DropdownContext.Provider value={{ openDropdownId, setOpenDropdownId }}>
-      {children}
-    </DropdownContext.Provider>
+    <div className="relative">
+      <label className="block text-xs font-medium text-slate-700 mb-1">
+        {label}
+      </label>
+      <select
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={disabled}
+        className={`
+          w-full rounded-xl border px-3 py-2 text-sm transition-all
+          ${disabled 
+            ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
+            : 'border-blue-200 bg-white/80 hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white cursor-pointer'
+          }
+        `}
+      >
+        <option value="" disabled>
+          {placeholder}
+        </option>
+        {options.map((option, index) => {
+          const optionValue = typeof option === 'string' ? option : option.value
+          const optionLabel = typeof option === 'string' ? option : (option.label || option.value || option)
+          const isDisabled = typeof option === 'object' ? option.disabled : false
+          
+          return (
+            <option 
+              key={`${optionValue}-${index}`}
+              value={optionValue}
+              disabled={isDisabled}
+            >
+              {optionLabel}
+            </option>
+          )
+        })}
+      </select>
+      {helperText && (
+        <p className="text-xs text-slate-500 mt-1">{helperText}</p>
+      )}
+    </div>
   )
 }
 
@@ -352,8 +383,7 @@ export default function Reports() {
   }
 
   return (
-    <DropdownProvider>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
+    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
       {/* Report Selection */}
       <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Monthly Attendance Report</div>
@@ -362,7 +392,7 @@ export default function Reports() {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 overflow-visible">
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Department"
             value={selection.department}
             onChange={handleDepartmentChange}
@@ -371,7 +401,7 @@ export default function Reports() {
             helperText="Only CME is available"
           />
           
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Semester"
             value={selection.year}
             onChange={handleSemesterChange}
@@ -381,7 +411,7 @@ export default function Reports() {
             helperText={!selection.department ? "Select department first" : "Select semester"}
           />
           
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Shift"
             value={selection.section}
             onChange={handleShiftChange}
@@ -390,7 +420,7 @@ export default function Reports() {
             helperText="Select class shift"
           />
           
-          <AdvancedDropdown
+          <SimpleDropdown
             label="Subject"
             value={selection.subject}
             onChange={handleSubjectChange}
@@ -477,13 +507,7 @@ export default function Reports() {
                     <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.present}</td>
                     <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.absent}</td>
                     <td className="border-b border-blue-100 px-3 py-2">
-                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${
-                        student.percentage >= 75 
-                          ? 'bg-green-100 text-green-800' 
-                          : student.percentage >= 60 
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${student.percentage >= 75 ? 'bg-green-100 text-green-800' : student.percentage >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
                         {student.percentage}%
                       </span>
                     </td>
@@ -495,6 +519,5 @@ export default function Reports() {
         </div>
       )}
     </motion.div>
-    </DropdownProvider>
   )
 }

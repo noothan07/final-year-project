@@ -10,7 +10,7 @@ export function setToken(token) {
 }
 
 export const http = axios.create({
-  baseURL: '',
+  baseURL: 'http://localhost:5000',
 })
 
 http.interceptors.request.use((config) => {

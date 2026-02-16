@@ -3,19 +3,19 @@ import { motion } from 'framer-motion'
 export default function Features() {
   const features = [
     {
-      icon: "✓",
-      title: "Smart Single-List Attendance",
+      icon: "✅",
+      title: "Single-List Attendance",
       description: "Mark attendance using either absentees or presents list",
       access: "Staff"
     },
     {
-      icon: "%",
-      title: "Automatic Percentage Calculation",
+      icon: "📱",
+      title: "Attendance Calculation",
       description: "Real-time attendance percentage computation",
       access: "Both"
     },
     {
-      icon: "↓",
+      icon: "⬇️",
       title: "Excel Report Download",
       description: "Generate detailed attendance reports in Excel format",
       access: "Both"
@@ -28,8 +28,8 @@ export default function Features() {
     },
     {
       icon: "📱",
-      title: "Mobile-Friendly Design",
-      description: "Works seamlessly on all devices",
+      title: "Responsive UI Design",
+      description: "Works seamlessly on all devices and responsive",
       access: "Both"
     },
     {

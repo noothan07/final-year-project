@@ -29,15 +29,9 @@ app.use('/api/dashboard', dashboardRoutes)
 const PORT = process.env.PORT || 5000
 
 async function start() {
-  // Skip database connection in mock mode
-  if (process.env.MOCK_MODE !== 'true') {
-    await connectDb(process.env.MONGODB_URI)
-  }
+  await connectDb(process.env.MONGODB_URI)
   app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`)
-    if (process.env.MOCK_MODE === 'true') {
-      console.log('🧪 MOCK MODE: Database operations are simulated')
-    }
   })
 }
 

@@ -6,7 +6,8 @@ const facultySchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
-    role: { type: String, default: 'faculty' },
+    department: { type: String, required: true, trim: true },
+    role: { type: String, required: true, enum: ['staff'], default: 'staff' },
   },
   { timestamps: true }
 )
@@ -21,5 +22,8 @@ facultySchema.pre('save', async function preSave(next) {
 facultySchema.methods.comparePassword = async function comparePassword(candidate) {
   return bcrypt.compare(candidate, this.password)
 }
+
+// Index for faster queries (email index is already created by unique: true)
+facultySchema.index({ department: 1 })
 
 export default mongoose.model('Faculty', facultySchema)

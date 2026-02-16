@@ -8,6 +8,6 @@ const router = express.Router()
 router.use(requireAuth)
 
 router.get('/monthly', getMonthlySummary)
-router.get('/monthly/export', exportMonthlyExcel)
+router.get('/excel', exportMonthlyExcel)
 
 export default router

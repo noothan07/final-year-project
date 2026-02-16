@@ -18,7 +18,7 @@ export default function Login() {
       console.log('Attempting login with:', { email, password })
       const result = await login(email, password)
       console.log('Login successful:', result)
-      navigate('/') // Redirect to dashboard after successful login
+      navigate('/dashboard') // Redirect to dashboard after successful login
     } catch (error) {
       console.error('Login error:', error)
       alert(`Login failed: ${error.message || 'Unknown error'}`)

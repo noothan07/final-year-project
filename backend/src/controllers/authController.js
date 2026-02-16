@@ -51,28 +51,23 @@ export async function login(req, res) {
     return res.status(400).json({ message: 'Email and password are required' })
   }
 
-  // Mock mode: skip database and return a fake user
-  if (process.env.MOCK_MODE === 'true') {
-    const token = jwt.sign(
-      { id: 'mock_user_id', email: String(email).toLowerCase(), role: 'faculty' },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-    return res.json({
-      token,
-      faculty: { id: 'mock_user_id', name: 'Mock Faculty', email, role: 'faculty' },
-    })
-  }
+  console.log('🔍 Login attempt:', { email: String(email).toLowerCase() })
 
   const faculty = await Faculty.findOne({ email: String(email).toLowerCase() })
   if (!faculty) {
+    console.log('❌ Faculty not found for email:', String(email).toLowerCase())
     return res.status(401).json({ message: 'Invalid credentials' })
   }
 
+  console.log('✅ Faculty found:', { id: faculty._id, email: faculty.email })
+
   const ok = await faculty.comparePassword(password)
   if (!ok) {
+    console.log('❌ Password comparison failed')
     return res.status(401).json({ message: 'Invalid credentials' })
   }
+
+  console.log('✅ Login successful for:', faculty.email)
 
   const token = signToken(faculty)
   return res.json({
