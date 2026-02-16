@@ -65,38 +65,49 @@ export default function Shell() {
       {/* Fixed Mobile Navigation */}
       <nav className="fixed top-15 left-0 right-0 z-40 border-t border-blue-100 bg-white/95 backdrop-blur-md shadow-lg md:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-1 px-2 py-3">
-          <button
-            onClick={() => window.location.href = '/attendance'}
-            className={`flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-              window.location.pathname === '/attendance'
-                ? 'bg-primary-blue text-white shadow-md'
-                : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
-            }`}
+
+          <NavLink
+            to="/attendance"
+            className={({ isActive }) =>
+              `flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+                isActive
+                  ? 'bg-primary-blue text-white shadow-md'
+                  : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
+              }`
+            }
           >
             Attendance
-          </button>
-          <button
-            onClick={() => window.location.href = '/dashboard'}
-            className={`flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-              window.location.pathname === '/'
-                ? 'bg-primary-blue text-white shadow-md'
-                : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
-            }`}
+          </NavLink>
+
+          <NavLink
+            to="/dashboard"
+            className={({ isActive }) =>
+              `flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+                isActive
+                  ? 'bg-primary-blue text-white shadow-md'
+                  : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
+              }`
+            }
           >
             Dashboard
-          </button>
-          <button
-            onClick={() => window.location.href = '/reports'}
-            className={`flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium transition-all ${
-              window.location.pathname === '/reports'
-                ? 'bg-primary-blue text-white shadow-md'
-                : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
-            }`}
+          </NavLink>
+
+          <NavLink
+            to="/reports"
+            className={({ isActive }) =>
+              `flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+                isActive
+                  ? 'bg-primary-blue text-white shadow-md'
+                  : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
+              }`
+            }
           >
             Reports
-          </button>
+          </NavLink>
+
         </div>
       </nav>
+
 
       {/* Main Content Area */}
       <main className="flex-1 pt-16 md:pt-16 lg:pt-16">
