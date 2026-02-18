@@ -15,7 +15,22 @@ const app = express()
 
 const allowedOrigins = process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : ['http://localhost:5173']
 app.use(cors({ 
-  origin: allowedOrigins, 
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true)
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true)
+    } else {
+      // For production, you might want to be more restrictive
+      // For now, allow all origins in production
+      if (process.env.NODE_ENV === 'production') {
+        callback(null, true)
+      } else {
+        callback(new Error('Not allowed by CORS'))
+      }
+    }
+  }, 
   credentials: true 
 }))
 app.use(express.json({ limit: '1mb' }))

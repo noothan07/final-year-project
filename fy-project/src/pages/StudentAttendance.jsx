@@ -7,7 +7,7 @@ export default function StudentAttendance() {
   const [semester, setSemester] = useState('')
   const [showResults, setShowResults] = useState(false)
 
-  const departments = ['CME', 'MECH', 'CIVIL', 'AUTOMOBILE', 'ARCHITECTURE']
+  const departments = ['CME','EEE', 'MECH', 'CIVIL', 'AUTOMOBILE', 'ARCHITECTURE']
   const semesters = ['1st sem', '3rd sem', '4th sem', '5th sem']
 
   const handleSearch = () => {
