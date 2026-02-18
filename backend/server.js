@@ -13,7 +13,11 @@ dotenv.config({ override: true })
 
 const app = express()
 
-app.use(cors({ origin: process.env.CLIENT_ORIGIN || true, credentials: true }))
+const allowedOrigins = process.env.CLIENT_ORIGIN ? process.env.CLIENT_ORIGIN.split(',') : ['http://localhost:5173']
+app.use(cors({ 
+  origin: allowedOrigins, 
+  credentials: true 
+}))
 app.use(express.json({ limit: '1mb' }))
 
 app.get('/api/health', (req, res) => {

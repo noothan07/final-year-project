@@ -21,7 +21,7 @@ const SHIFTS = ['1st shift', '2nd shift']
 // Student form options - CME only with correct years
 const STUDENT_DEPARTMENTS = ['CME']
 const STUDENT_YEARS = ['1st year', '2nd year', '3rd year']
-const STUDENT_SEMESTERS = ['1st semester', '2nd semester', '3rd semester', '4th semester', '5th semester', '6th semester']
+const STUDENT_SEMESTERS = ['1st semester', '3rd semester', '4th semester', '5th semester']
 const STUDENT_SHIFTS = ['1st shift', '2nd shift']
 
 // Simple Dropdown Component - Reliable and bug-free
