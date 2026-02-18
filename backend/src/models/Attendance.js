@@ -46,7 +46,8 @@ const periodAttendanceSchema = new mongoose.Schema({
     required: false
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'periodAttendance'
 })
 
 // Compound unique index to prevent duplicate attendance marking
@@ -57,7 +58,8 @@ periodAttendanceSchema.index(
 
 // Additional indexes for faster queries
 periodAttendanceSchema.index({ date: 1 })
-periodAttendanceSchema.index({ department: 1, semester: 1, shift: 1 })
+periodAttendanceSchema.index({ department: 1, semester: 1, shift: 1, subject: 1 })
+periodAttendanceSchema.index({ department: 1, semester: 1, shift: 1, subject: 1, date: 1 })
 periodAttendanceSchema.index({ markedBy: 1 })
 
 export default mongoose.model('PeriodAttendance', periodAttendanceSchema)

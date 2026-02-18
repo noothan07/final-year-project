@@ -30,16 +30,36 @@ export async function markAttendance(payload) {
   return data
 }
 
+// Convert frontend semester to backend format
+const SEMESTER_MAP = {
+  '1st sem': '1st semester',
+  '3rd sem': '3rd semester', 
+  '4th sem': '4th semester',
+  '5th sem': '5th semester'
+}
+
 export async function getMonthlyReport(params) {
-  const { data } = await http.get(`/api/student/monthly-report/${params.pin}`, { 
-    params: { month: params.month, year: params.year } 
+  const { data } = await http.get('/api/reports/monthly', { 
+    params: { 
+      department: params.department,
+      semester: SEMESTER_MAP[params.year] || params.year,
+      shift: params.section,
+      subject: params.subject,
+      month: params.month
+    } 
   })
   return data
 }
 
 export async function downloadMonthlyExcel(params) {
-  const response = await http.get('/api/reports/excel', {
-    params,
+  const response = await http.get('/api/reports/monthly/excel', {
+    params: {
+      department: params.department,
+      semester: SEMESTER_MAP[params.year] || params.year,
+      shift: params.section,
+      subject: params.subject,
+      month: params.month
+    },
     responseType: 'blob',
   })
 

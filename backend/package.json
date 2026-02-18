@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "nodemon server.js",
     "start": "node server.js",
-    "seed": "node scripts/seedAtlas.js"
+    "seed": "node scripts/seedAtlas.js",
+    "seed-attendance": "node scripts/seedAttendance.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

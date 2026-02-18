@@ -59,10 +59,18 @@ function SimpleDropdown({
 
 // Frontend subject mapping for CME department
 const SUBJECTS_BY_SEMESTER = {
-  '1st sem': ['MPC', 'C Language', 'English', 'BCE'],
+  '1st sem': ['Maths', 'Physics', 'chemistry', 'English', 'C ', 'BCE'],
   '3rd sem': ['DSA', 'M2', 'DE', 'OS', 'DBMS'],
-  '4th sem': ['SE', 'Web Technology', 'Computer Organization', 'Java', 'CN & CS'],
+  '4th sem': ['SE', 'WT', 'COMP', 'Java', 'CN & CS'],
   '5th sem': ['IME', 'BD & CC', 'AP', 'IoT', 'Python']
+}
+
+// Convert frontend semester to backend format
+const SEMESTER_MAP = {
+  '1st sem': '1st semester',
+  '3rd sem': '3rd semester', 
+  '4th sem': '4th semester',
+  '5th sem': '5th semester'
 }
 
 // Department options with disabled state
@@ -293,8 +301,8 @@ export default function Reports() {
   const { selection, setSelection } = useClassSelection()
 
   const [month, setMonth] = useState(() => {
-    const now = new Date()
-    return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+    // Set to latest month with available data (January 2026)
+    return '2026-01'
   })
 
   const [loading, setLoading] = useState(false)
@@ -374,7 +382,18 @@ export default function Reports() {
     if (!canLoad) return
     setDownloading(true)
     try {
-      await downloadMonthlyExcel({ ...selection, month })
+      const response = await downloadMonthlyExcel({ ...selection, month })
+      
+      // Create download link
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `${selection.subject}_${month}_attendance_report.xlsx`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+      
     } catch (err) {
       setError(err?.response?.data?.message || 'Failed to download report')
     } finally {
@@ -478,17 +497,17 @@ export default function Reports() {
             <div>
               <div className="text-base font-semibold text-primary-blue">Attendance Summary</div>
               <div className="mt-1 text-sm text-slate-600">
-                Monthly attendance report for {month}
+                Monthly attendance report for {report.subject} - {report.month}
               </div>
             </div>
-            <div className="text-sm text-slate-600">{report.length} students</div>
+            <div className="text-sm text-slate-600">{report.students?.length || 0} students • {report.workingDays} working days</div>
           </div>
 
           <div className="mt-4 overflow-x-auto">
             <table className="min-w-full border-separate border-spacing-0">
               <thead>
                 <tr className="text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="border-b border-blue-200 px-3 py-2">Roll No</th>
+                  <th className="border-b border-blue-200 px-3 py-2">PIN</th>
                   <th className="border-b border-blue-200 px-3 py-2">Name</th>
                   <th className="border-b border-blue-200 px-3 py-2">Working Days</th>
                   <th className="border-b border-blue-200 px-3 py-2">Present</th>
@@ -497,15 +516,15 @@ export default function Reports() {
                 </tr>
               </thead>
               <tbody>
-                {report.map((student, index) => (
+                {report.students?.map((student, index) => (
                   <tr key={index} className="text-sm hover:bg-blue-50/50 transition-colors">
                     <td className="border-b border-blue-100 px-3 py-2 font-medium text-slate-900">
-                      {student.rollNo}
+                      {student.pin}
                     </td>
                     <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.name}</td>
-                    <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.workingDays}</td>
-                    <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.present}</td>
-                    <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.absent}</td>
+                    <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{report.workingDays}</td>
+                    <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.presentDays}</td>
+                    <td className="border-b border-blue-100 px-3 py-2 text-slate-700">{student.absentDays}</td>
                     <td className="border-b border-blue-100 px-3 py-2">
                       <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${student.percentage >= 75 ? 'bg-green-100 text-green-800' : student.percentage >= 60 ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
                         {student.percentage}%
