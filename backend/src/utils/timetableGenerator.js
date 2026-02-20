@@ -4,7 +4,7 @@
  */
 
 // Subject definitions by semester
-const SUBJECTS = {
+export const SUBJECTS = {
   '1st semester': ['Maths', 'Physics', 'Chemistry', 'English', 'C', 'BCE'],
   '4th semester': ['SE', 'WT', 'COMP', 'Java', 'CN & CS'],
   '5th semester': ['IME', 'BD & CC', 'AP', 'IoT', 'Python']
