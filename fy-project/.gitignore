@@ -25,5 +25,8 @@ dist-ssr
 
 # Environment variables
 .env
-.env.*
-fy-project/.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+# fy-project/.env

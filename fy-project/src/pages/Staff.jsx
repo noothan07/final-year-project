@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { UserPlus, Users, Trash2, Shield, AlertCircle, CheckCircle, X, Eye, EyeOff } from 'lucide-react'
+import { apiCall, API_ENDPOINTS } from '../config/api.js'
 
 export default function Staff() {
   const { faculty } = useAuth()
@@ -56,19 +57,12 @@ export default function Staff() {
 
   const fetchStaffList = async () => {
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:5001/api/staff', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        setStaffList(data)
-      }
+      const response = await apiCall(API_ENDPOINTS.STAFF_LIST)
+      const data = await response.json()
+      setStaffList(data)
     } catch (error) {
       console.error('Error fetching staff list:', error)
+      setMessage(error.message || 'Error fetching staff list')
     }
   }
 
@@ -146,13 +140,8 @@ export default function Staff() {
     setMessage('')
 
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:5001/api/staff/register', {
+      const response = await apiCall(API_ENDPOINTS.STAFF_REGISTER, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           employeeId: formData.employeeId,
           name: formData.name,
@@ -164,23 +153,18 @@ export default function Staff() {
 
       const data = await response.json()
 
-      if (response.ok) {
-        setMessage('Staff registered successfully!')
-        setFormData({
-          employeeId: '',
-          name: '',
-          email: '',
-          department: '',
-          password: '',
-          confirmPassword: ''
-        })
-        fetchStaffList() // Refresh staff list
-      } else {
-        setMessage(data.message || 'Error registering staff')
-      }
+      setMessage('Staff registered successfully!')
+      setFormData({
+        employeeId: '',
+        name: '',
+        email: '',
+        department: '',
+        password: '',
+        confirmPassword: ''
+      })
+      fetchStaffList() // Refresh staff list
     } catch (error) {
-      setMessage('Error connecting to server. Please make sure the backend is running.')
-      console.error('Error:', error)
+      setMessage(error.message || 'Error registering staff')
     } finally {
       setIsLoading(false)
     }
@@ -196,30 +180,19 @@ export default function Staff() {
     setMessage('')
 
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:5001/api/staff/${employeeId}`, {
+      const response = await apiCall(API_ENDPOINTS.STAFF_DELETE(employeeId), {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
         body: JSON.stringify({
           password: deleteData.password
         })
       })
 
       const data = await response.json()
-
-      if (response.ok) {
-        setMessage('Staff deleted successfully!')
-        setDeleteData({ employeeId: '', password: '' })
-        fetchStaffList() // Refresh staff list
-      } else {
-        setMessage(data.message || 'Error deleting staff')
-      }
+      setMessage('Staff deleted successfully!')
+      setDeleteData({ employeeId: '', password: '' })
+      fetchStaffList() // Refresh staff list
     } catch (error) {
-      setMessage('Error deleting staff')
-      console.error('Error:', error)
+      setMessage(error.message || 'Error deleting staff')
     } finally {
       setIsLoading(false)
     }
