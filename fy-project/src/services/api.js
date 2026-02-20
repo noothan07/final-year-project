@@ -66,6 +66,32 @@ export async function downloadMonthlyExcel(params) {
   return response
 }
 
+export async function getWeeklyRegister(params) {
+  const { data } = await http.get('/api/reports/weekly-register', { 
+    params: { 
+      department: params.department,
+      semester: SEMESTER_MAP[params.year] || params.year,
+      shift: params.section,
+      weekStart: params.weekStart
+    } 
+  })
+  return data
+}
+
+export async function downloadWeeklyExcel(params) {
+  const response = await http.get('/api/reports/weekly-register/excel', {
+    params: {
+      department: params.department,
+      semester: SEMESTER_MAP[params.year] || params.year,
+      shift: params.section,
+      weekStart: params.weekStart
+    },
+    responseType: 'blob',
+  })
+
+  return response
+}
+
 export async function getStudentAttendance(pin, params) {
   const { data } = await http.get(`/api/student/attendance/${pin}`, { params })
   return data
