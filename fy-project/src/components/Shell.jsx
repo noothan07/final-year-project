@@ -44,6 +44,7 @@ export default function Shell() {
             <NavItem to="/attendance">Attendance</NavItem>
             <NavItem to="/dashboard">Dashboard</NavItem>
             <NavItem to="/reports">Reports</NavItem>
+            {faculty?.role === 'admin' && <NavItem to="/staff">Staff</NavItem>}
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -69,7 +70,7 @@ export default function Shell() {
           <NavLink
             to="/attendance"
             className={({ isActive }) =>
-              `flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+              `flex-1 max-w-25 rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
                 isActive
                   ? 'bg-primary-blue text-white shadow-md'
                   : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
@@ -82,7 +83,7 @@ export default function Shell() {
           <NavLink
             to="/dashboard"
             className={({ isActive }) =>
-              `flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+              `flex-1 max-w-25 rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
                 isActive
                   ? 'bg-primary-blue text-white shadow-md'
                   : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
@@ -95,7 +96,7 @@ export default function Shell() {
           <NavLink
             to="/reports"
             className={({ isActive }) =>
-              `flex-1 max-w-[100px] rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+              `flex-1 max-w-25 rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
                 isActive
                   ? 'bg-primary-blue text-white shadow-md'
                   : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
@@ -104,6 +105,21 @@ export default function Shell() {
           >
             Reports
           </NavLink>
+
+          {faculty?.role === 'admin' && (
+            <NavLink
+              to="/staff"
+              className={({ isActive }) =>
+                `flex-1 max-w-25 rounded-lg px-3 py-2 text-xs font-medium text-center transition-all ${
+                  isActive
+                    ? 'bg-primary-blue text-white shadow-md'
+                    : 'bg-blue-50 text-slate-700 hover:bg-primary-blue hover:text-white'
+                }`
+              }
+            >
+              Staff
+            </NavLink>
+          )}
 
         </div>
       </nav>

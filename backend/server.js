@@ -8,6 +8,7 @@ import studentRoutes from './src/routes/studentRoutes.js'
 import attendanceRoutes from './src/routes/attendanceRoutes.js'
 import reportRoutes from './src/routes/reportRoutes.js'
 import dashboardRoutes from './src/routes/dashboardRoutes.js'
+import staffRoutes from './src/routes/staffRoutes.js'
 
 dotenv.config({ override: true })
 
@@ -44,6 +45,7 @@ app.use('/api/students', studentRoutes)
 app.use('/api/attendance', attendanceRoutes)
 app.use('/api/reports', reportRoutes)
 app.use('/api/dashboard', dashboardRoutes)
+app.use('/api/staff', staffRoutes)
 
 const PORT = process.env.PORT || 5000
 
