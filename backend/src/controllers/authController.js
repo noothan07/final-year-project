@@ -11,7 +11,7 @@ function signToken(faculty) {
 }
 
 export async function register(req, res) {
-  const { name, email, password, role } = req.body || {}
+  const { name, email, password, role, employeeId, department } = req.body || {}
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: 'Name, email and password are required' })
@@ -20,13 +20,13 @@ export async function register(req, res) {
   // Mock mode: skip database and return a fake user
   if (process.env.MOCK_MODE === 'true') {
     const token = jwt.sign(
-      { id: 'mock_user_id', email: String(email).toLowerCase(), role: role || 'faculty' },
+      { id: 'mock_user_id', email: String(email).toLowerCase(), role: role || 'staff' },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
     return res.status(201).json({
       token,
-      faculty: { id: 'mock_user_id', name, email, role: role || 'faculty' },
+      faculty: { id: 'mock_user_id', name, email, role: role || 'staff', employeeId: employeeId || 'EMP001' },
     })
   }
 
@@ -35,12 +35,25 @@ export async function register(req, res) {
     return res.status(409).json({ message: 'Email already in use' })
   }
 
-  const faculty = await Faculty.create({ name, email, password, role: role || 'faculty' })
+  const faculty = await Faculty.create({ 
+    name, 
+    email: String(email).toLowerCase(), 
+    password, 
+    role: role || 'staff',
+    employeeId: employeeId || `EMP${Date.now()}`,
+    department: department || 'General'
+  })
   const token = signToken(faculty)
 
   return res.status(201).json({
     token,
-    faculty: { id: faculty._id, name: faculty.name, email: faculty.email, role: faculty.role },
+    faculty: { 
+      id: faculty._id, 
+      name: faculty.name, 
+      email: faculty.email, 
+      role: faculty.role,
+      employeeId: faculty.employeeId
+    },
   })
 }
 
@@ -88,5 +101,12 @@ export async function me(req, res) {
   if (!faculty) {
     return res.status(404).json({ message: 'Faculty not found' })
   }
-  return res.json({ faculty })
+  return res.json({ faculty: {
+    id: faculty._id,
+    name: faculty.name,
+    email: faculty.email,
+    role: faculty.role,
+    employeeId: faculty.employeeId,
+    department: faculty.department
+  } })
 }

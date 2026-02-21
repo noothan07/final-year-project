@@ -10,6 +10,11 @@ export async function getDashboardSummary(params) {
   return data
 }
 
+export async function getSubjectWiseSummary(params) {
+  const { data } = await http.get('/api/dashboard/subject-wise', { params })
+  return data
+}
+
 export async function getStudents(params) {
   const { data } = await http.get('/api/students', { params })
   return data
