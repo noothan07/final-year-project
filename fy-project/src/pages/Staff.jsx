@@ -25,6 +25,17 @@ export default function Staff() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showDeletePassword, setShowDeletePassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [messageTimeout, setMessageTimeout] = useState(null)
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (messageTimeout) {
+        clearTimeout(messageTimeout)
+      }
+    }
+  }, [messageTimeout])
 
   // Check if user is admin
   if (!faculty || faculty.role !== 'admin') {
@@ -66,6 +77,22 @@ export default function Staff() {
     }
   }
 
+  const setMessageWithTimeout = (message, duration = 3000) => {
+    // Clear existing timeout
+    if (messageTimeout) {
+      clearTimeout(messageTimeout)
+    }
+    
+    setMessage(message)
+    
+    if (message) {
+      const timeout = setTimeout(() => {
+        setMessage('')
+      }, duration)
+      setMessageTimeout(timeout)
+    }
+  }
+
   const validateForm = () => {
     const newErrors = {}
     
@@ -92,7 +119,11 @@ export default function Staff() {
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters'
     } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
-      newErrors.password = 'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+      // Don't set inline error, will show as toast
+    } else if (/^(.)\1{5,}$/.test(formData.password)) {
+      // Don't set inline error, will show as toast
+    } else if (!/(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?])/.test(formData.password)) {
+      // Don't set inline error, will show as toast
     }
     
     if (!formData.confirmPassword) {
@@ -136,6 +167,19 @@ export default function Staff() {
       return
     }
 
+    // Check for weak password and show toast only when clicking register
+    const hasUppercase = /[A-Z]/.test(formData.password)
+    const hasLowercase = /[a-z]/.test(formData.password)
+    const hasNumber = /\d/.test(formData.password)
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password)
+    const hasRepeatedChars = /^(.)\1{5,}$/.test(formData.password)
+    
+    // Check if password is weak - show toast message
+    if (formData.password.length < 6 || !hasUppercase || !hasLowercase || !hasNumber || hasRepeatedChars || !hasSpecialChar) {
+      setMessageWithTimeout('Please choose a stronger password')
+      return
+    }
+
     setIsLoading(true)
     setMessage('')
 
@@ -153,7 +197,7 @@ export default function Staff() {
 
       const data = await response.json()
 
-      setMessage('Staff registered successfully!')
+      setMessageWithTimeout('Staff registered successfully!')
       setFormData({
         employeeId: '',
         name: '',
@@ -164,7 +208,7 @@ export default function Staff() {
       })
       fetchStaffList() // Refresh staff list
     } catch (error) {
-      setMessage(error.message || 'Error registering staff')
+      setMessageWithTimeout(error.message || 'Error registering staff')
     } finally {
       setIsLoading(false)
     }
@@ -172,7 +216,7 @@ export default function Staff() {
 
   const handleDelete = async (employeeId) => {
     if (!deleteData.password) {
-      setMessage('Password is required for deletion')
+      setMessageWithTimeout('Password is required for deletion')
       return
     }
 
@@ -188,11 +232,12 @@ export default function Staff() {
       })
 
       const data = await response.json()
-      setMessage('Staff deleted successfully!')
+
+      setMessageWithTimeout('Staff deleted successfully!')
       setDeleteData({ employeeId: '', password: '' })
       fetchStaffList() // Refresh staff list
     } catch (error) {
-      setMessage(error.message || 'Error deleting staff')
+      setMessageWithTimeout(error.message || 'Error deleting staff')
     } finally {
       setIsLoading(false)
     }
@@ -386,23 +431,6 @@ export default function Staff() {
               </div>
               <h2 className="text-lg sm:text-xl font-semibold text-gray-800">Register New Staff</h2>
             </div>
-            
-            {message && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`mb-4 sm:mb-6 p-3 sm:p-4 rounded-lg flex items-center ${
-                  message.includes('success') ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
-                }`}
-              >
-                {message.includes('success') ? (
-                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                ) : (
-                  <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                )}
-                <span className="text-sm sm:text-base">{message}</span>
-              </motion.div>
-            )}
 
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
@@ -511,6 +539,8 @@ export default function Staff() {
                       name="password"
                       value={formData.password}
                       onChange={handleInputChange}
+                      onFocus={() => setIsPasswordFocused(true)}
+                      onBlur={() => setIsPasswordFocused(false)}
                       className={`w-full px-3 sm:px-4 py-2 sm:py-3 pr-10 sm:pr-12 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors text-sm sm:text-base ${
                         errors.password ? 'border-red-500 bg-red-50' : 'border-blue-200'
                       }`}
@@ -524,6 +554,31 @@ export default function Staff() {
                       {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
                   </div>
+                  
+                  {/* Password Requirements */}
+                  {formData.password && isPasswordFocused && (
+                    <div className="mt-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs font-medium text-blue-800 mb-2">Password Requirements:</p>
+                      <ul className="text-xs text-blue-700 space-y-1">
+                        <li className={`flex items-center ${formData.password.length >= 6 ? 'text-green-600' : 'text-blue-700'}`}>
+                          {formData.password.length >= 6 ? '✓' : '•'} Minimum 6 characters
+                        </li>
+                        <li className={`flex items-center ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-blue-700'}`}>
+                          {/[A-Z]/.test(formData.password) ? '✓' : '•'} At least one uppercase letter
+                        </li>
+                        <li className={`flex items-center ${/[a-z]/.test(formData.password) ? 'text-green-600' : 'text-blue-700'}`}>
+                          {/[a-z]/.test(formData.password) ? '✓' : '•'} At least one lowercase letter
+                        </li>
+                        <li className={`flex items-center ${/\d/.test(formData.password) ? 'text-green-600' : 'text-blue-700'}`}>
+                          {/\d/.test(formData.password) ? '✓' : '•'} At least one number
+                        </li>
+                        <li className={`flex items-center ${/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? 'text-green-600' : 'text-blue-700'}`}>
+                          {/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password) ? '✓' : '•'} At least one special character
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+                  
                   {errors.password && (
                     <p className="mt-2 text-sm text-red-600 flex items-center">
                       <AlertCircle className="w-4 h-4 mr-1" />
@@ -564,6 +619,33 @@ export default function Staff() {
                 </div>
               </div>
 
+              <div className="relative">
+              {message && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 20, scale: 0.95 }}
+                  className={`absolute left-1/2 transform -translate-x-1/2 -top-16 ${
+                    message.includes('success') ? 'text-green-600' : 
+                    message === 'Please choose a stronger password' ? 'text-orange-600' :
+                    'text-red-600'
+                  }`}
+                >
+                  <div className={`inline-block px-4 py-3 rounded-lg shadow-lg flex items-center max-w-sm ${
+                    message.includes('success') ? 'bg-green-500 text-white' : 
+                    message === 'Please choose a stronger password' ? 'bg-orange-500 text-white' :
+                    'bg-red-500 text-white'
+                  }`}>
+                    {message.includes('success') ? (
+                      <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+                    )}
+                    <span className="text-sm font-medium">{message}</span>
+                  </div>
+                </motion.div>
+              )}
+
               <div className="flex justify-end pt-4">
                 <button
                   type="submit"
@@ -580,6 +662,7 @@ export default function Staff() {
                   )}
                 </button>
               </div>
+            </div>
             </form>
           </motion.div>
         </motion.div>
