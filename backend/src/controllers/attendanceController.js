@@ -262,6 +262,7 @@ export async function getClassAttendance(req, res) {
 export async function getStudentAttendance(req, res) {
   try {
     const { pin } = req.params
+    const { department, semester } = req.query
     
     if (!pin) {
       return res.status(400).json({ error: 'Student PIN is required' })
@@ -272,6 +273,15 @@ export async function getStudentAttendance(req, res) {
     
     if (!student) {
       return res.status(404).json({ error: 'Student not found' })
+    }
+    
+    // Validate department and semester combination if provided
+    if (department && student.department !== department) {
+      return res.status(400).json({ error: `Department mismatch. Student is in ${student.department} but you selected ${department}` })
+    }
+    
+    if (semester && student.semester !== semester) {
+      return res.status(400).json({ error: `Semester mismatch. Student is in ${student.semester} but you selected ${semester}` })
     }
     
     // Fetch all period attendance records for the student's semester
@@ -365,6 +375,13 @@ export async function getStudentAttendance(req, res) {
     })
     
     res.json({
+      student: {
+        name: student.name,
+        pin: student.pin,
+        department: student.department,
+        semester: student.semester,
+        shift: student.shift
+      },
       overallPercentage,
       totalClasses: totalWorkingDays,
       present: totalPresentDays,

@@ -97,9 +97,20 @@ export async function downloadWeeklyExcel(params) {
   return response
 }
 
-export async function getStudentAttendance(pin, params) {
-  const { data } = await http.get(`/api/student/attendance/${pin}`, { params })
+export async function getStudentAttendance(pin, department, semester) {
+  const params = {}
+  if (department) params.department = department
+  if (semester) params.semester = semester
+  
+  const { data } = await http.get(`/api/public/student/${pin}`, { params })
   return data
+}
+
+export async function downloadStudentAttendanceExcel(pin) {
+  const response = await http.get(`/api/public/student/${pin}/excel`, {
+    responseType: 'blob',
+  })
+  return response
 }
 
 export async function getClassAttendance(params) {
