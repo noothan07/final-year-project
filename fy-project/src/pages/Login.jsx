@@ -8,11 +8,43 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [errors, setErrors] = useState({})
   const { login } = useAuth()
   const navigate = useNavigate()
 
+  function validateForm() {
+    const newErrors = {}
+    
+    // Email validation
+    if (!email) {
+      newErrors.email = 'Email is required'
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = 'Please enter a valid email address'
+    }
+    
+    // Password validation
+    if (!password) {
+      newErrors.password = 'Password is required'
+    } else if (password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters long'
+    }
+    
+    return newErrors
+  }
+
   async function onSubmit(e) {
     e.preventDefault()
+    
+    // Clear previous errors
+    setErrors({})
+    
+    // Validate form
+    const validationErrors = validateForm()
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors)
+      return
+    }
+    
     setLoading(true)
     try {
       console.log('Attempting login with:', { email, password })
@@ -21,7 +53,28 @@ export default function Login() {
       navigate('/dashboard') // Redirect to dashboard after successful login
     } catch (error) {
       console.error('Login error:', error)
-      alert(`Login failed: ${error.message || 'Unknown error'}`)
+      
+      // Handle different error scenarios
+      let errorMessage = 'Login failed'
+      
+      if (error.response) {
+        const status = error.response.status
+        const data = error.response.data
+        
+        if (status === 401) {
+          errorMessage = data?.message || 'Invalid email or password'
+        } else if (status === 404) {
+          errorMessage = 'Email not registered. Please check your credentials.'
+        } else if (status === 400) {
+          errorMessage = data?.message || 'Invalid request. Please check your input.'
+        } else if (status >= 500) {
+          errorMessage = 'Server error. Please try again later.'
+        }
+      } else if (error.request) {
+        errorMessage = 'Network error. Please check your internet connection.'
+      }
+      
+      setErrors({ general: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -50,16 +103,30 @@ export default function Login() {
             </div>
 
             <form onSubmit={onSubmit} className="space-y-5">
+              {/* General Error Message */}
+              {errors.general && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm text-red-600">{errors.general}</p>
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-primary-blue mb-2">Email</label>
                 <input
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   type="email"
-                  className="w-full rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                  className={`w-full rounded-xl border bg-white/80 px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:bg-white ${
+                    errors.email 
+                      ? 'border-red-300 focus:border-red-400 focus:ring-red-200' 
+                      : 'border-blue-200 focus:border-blue-400 focus:ring-blue-200'
+                  }`}
                   placeholder="faculty@college.edu"
                   required
                 />
+                {errors.email && (
+                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                )}
               </div>
 
               <div>
@@ -68,10 +135,17 @@ export default function Login() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   type="password"
-                  className="w-full rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-sm  outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
+                  className={`w-full rounded-xl border bg-white/80 px-4 py-3 text-sm outline-none transition-all focus:ring-2 focus:bg-white ${
+                    errors.password 
+                      ? 'border-red-300 focus:border-red-400 focus:ring-red-200' 
+                      : 'border-blue-200 focus:border-blue-400 focus:ring-blue-200'
+                  }`}
                   placeholder="••••••••"
                   required
                 />
+                {errors.password && (
+                  <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                )}
               </div>
 
               <button

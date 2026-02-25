@@ -1,6 +1,6 @@
 import express from 'express'
 
-import { exportMonthlyExcel, getMonthlySummary } from '../controllers/reportController.js'
+import { exportMonthlyExcel, getMonthlySummary, getWeeklyRegister, exportWeeklyExcel } from '../controllers/reportController.js'
 import { requireAuth } from '../middleware/auth.js'
 
 const router = express.Router()
@@ -8,6 +8,8 @@ const router = express.Router()
 router.use(requireAuth)
 
 router.get('/monthly', getMonthlySummary)
-router.get('/excel', exportMonthlyExcel)
+router.get('/monthly/excel', exportMonthlyExcel)
+router.get('/weekly-register', getWeeklyRegister)
+router.get('/weekly-register/excel', exportWeeklyExcel)
 
 export default router

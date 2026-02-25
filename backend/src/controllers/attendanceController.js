@@ -2,6 +2,7 @@ import Student from '../models/Student.js'
 import PeriodAttendance from '../models/Attendance.js'
 import { parseISODateOnly } from '../utils/dates.js'
 import { parseRollList, uniq } from '../utils/rollParsing.js'
+import ExcelJS from 'exceljs'
 
 export async function markAttendance(req, res) {
   try {
@@ -250,5 +251,326 @@ export async function getClassAttendance(req, res) {
       message: 'Failed to get class attendance: ' + (error.message || 'Unknown error'),
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
+  }
+}
+
+/**
+ * Calculate student attendance statistics
+ * @param {string} pin - Student PIN
+ * @returns {Object} - Attendance statistics with monthly breakdown
+ */
+export async function getStudentAttendance(req, res) {
+  try {
+    const { pin } = req.params
+    const { department, semester } = req.query
+    
+    if (!pin) {
+      return res.status(400).json({ error: 'Student PIN is required' })
+    }
+    
+    // Find student
+    const student = await Student.findOne({ pin, status: 'active' })
+    
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' })
+    }
+    
+    // Validate department and semester combination if provided
+    if (department && student.department !== department) {
+      return res.status(400).json({ error: `Department mismatch. Student is in ${student.department} but you selected ${department}` })
+    }
+    
+    if (semester && student.semester !== semester) {
+      return res.status(400).json({ error: `Semester mismatch. Student is in ${student.semester} but you selected ${semester}` })
+    }
+    
+    // Fetch all period attendance records for the student's semester
+    const attendanceRecords = await PeriodAttendance.find({
+      semester: student.semester,
+      department: student.department,
+      shift: student.shift
+    }).sort({ date: 1, period: 1 })
+    
+    if (attendanceRecords.length === 0) {
+      return res.json({
+        overallPercentage: 0,
+        totalClasses: 0,
+        present: 0,
+        absent: 0,
+        monthlyBreakdown: []
+      })
+    }
+    
+    // Group records by date and calculate daily attendance
+    const dailyAttendance = {}
+    const monthlyData = {}
+    
+    attendanceRecords.forEach(record => {
+      const dateStr = record.date.toISOString().split('T')[0]
+      const monthYear = record.date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      
+      if (!dailyAttendance[dateStr]) {
+        dailyAttendance[dateStr] = {
+          date: dateStr,
+          totalPeriods: 0,
+          presentPeriods: 0,
+          monthYear
+        }
+      }
+      
+      dailyAttendance[dateStr].totalPeriods++
+      
+      // Check if student is present in this period
+      if (record.presents.includes(pin)) {
+        dailyAttendance[dateStr].presentPeriods++
+      }
+      
+      // Initialize monthly data
+      if (!monthlyData[monthYear]) {
+        monthlyData[monthYear] = {
+          totalDays: 0,
+          presentDays: 0
+        }
+      }
+    })
+    
+    // Calculate daily status and monthly aggregates
+    let totalWorkingDays = 0
+    let totalPresentDays = 0
+    
+    Object.values(dailyAttendance).forEach(day => {
+      // Apply 4-period rule: present if >= 4 periods
+      const isPresent = day.presentPeriods >= 4
+      
+      if (isPresent) {
+        totalPresentDays++
+      }
+      totalWorkingDays++
+      
+      // Update monthly data
+      monthlyData[day.monthYear].totalDays++
+      if (isPresent) {
+        monthlyData[day.monthYear].presentDays++
+      }
+    })
+    
+    // Calculate overall percentage
+    const overallPercentage = totalWorkingDays > 0 
+      ? Math.round((totalPresentDays / totalWorkingDays) * 100) 
+      : 0
+    
+    // Generate monthly breakdown
+    const monthlyBreakdown = Object.entries(monthlyData).map(([month, data]) => ({
+      month,
+      percentage: data.totalDays > 0 
+        ? Math.round((data.presentDays / data.totalDays) * 100) 
+        : 0,
+      totalDays: data.totalDays,
+      presentDays: data.presentDays
+    })).sort((a, b) => {
+      // Sort by month chronologically
+      const dateA = new Date(a.month)
+      const dateB = new Date(b.month)
+      return dateA - dateB
+    })
+    
+    res.json({
+      student: {
+        name: student.name,
+        pin: student.pin,
+        department: student.department,
+        semester: student.semester,
+        shift: student.shift
+      },
+      overallPercentage,
+      totalClasses: totalWorkingDays,
+      present: totalPresentDays,
+      absent: totalWorkingDays - totalPresentDays,
+      monthlyBreakdown
+    })
+    
+  } catch (error) {
+    console.error('Error calculating student attendance:', error)
+    res.status(500).json({ error: 'Internal server error' })
+  }
+}
+
+/**
+ * Export student attendance to Excel
+ * @param {string} pin - Student PIN
+ * @returns {Buffer} - Excel file buffer
+ */
+export async function exportStudentAttendance(req, res) {
+  try {
+    const { pin } = req.params
+    
+    if (!pin) {
+      return res.status(400).json({ error: 'Student PIN is required' })
+    }
+    
+    // Find student
+    const student = await Student.findOne({ pin, status: 'active' })
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' })
+    }
+    
+    // Fetch all period attendance records for the student's semester
+    const attendanceRecords = await PeriodAttendance.find({
+      semester: student.semester,
+      department: student.department,
+      shift: student.shift
+    }).sort({ date: 1, period: 1 })
+    
+    if (attendanceRecords.length === 0) {
+      return res.status(404).json({ error: 'No attendance records found' })
+    }
+    
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook()
+    const worksheet = workbook.addWorksheet('Attendance Report')
+    
+    // Set up columns
+    worksheet.columns = [
+      { header: 'Date', key: 'date', width: 15 },
+      { header: 'Present Periods', key: 'presentPeriods', width: 15 },
+      { header: 'Total Periods', key: 'totalPeriods', width: 15 },
+      { header: 'Day Status', key: 'status', width: 15 }
+    ]
+    
+    // Style header row
+    worksheet.getRow(1).font = { bold: true }
+    worksheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE6B8' }
+    }
+    
+    // Process attendance data
+    const dailyAttendance = {}
+    const monthlyData = {}
+    
+    attendanceRecords.forEach(record => {
+      const dateStr = record.date.toISOString().split('T')[0]
+      const monthYear = record.date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+      
+      if (!dailyAttendance[dateStr]) {
+        dailyAttendance[dateStr] = {
+          date: record.date.toLocaleDateString(),
+          totalPeriods: 0,
+          presentPeriods: 0,
+          monthYear
+        }
+      }
+      
+      dailyAttendance[dateStr].totalPeriods++
+      
+      if (record.presents.includes(pin)) {
+        dailyAttendance[dateStr].presentPeriods++
+      }
+      
+      if (!monthlyData[monthYear]) {
+        monthlyData[monthYear] = {
+          totalDays: 0,
+          presentDays: 0
+        }
+      }
+    })
+    
+    // Add daily attendance data
+    let totalWorkingDays = 0
+    let totalPresentDays = 0
+    
+    Object.values(dailyAttendance).forEach(day => {
+      const isPresent = day.presentPeriods >= 4
+      const status = isPresent ? 'Present' : 'Absent'
+      
+      if (isPresent) {
+        totalPresentDays++
+      }
+      totalWorkingDays++
+      
+      monthlyData[day.monthYear].totalDays++
+      if (isPresent) {
+        monthlyData[day.monthYear].presentDays++
+      }
+      
+      worksheet.addRow({
+        date: day.date,
+        presentPeriods: day.presentPeriods,
+        totalPeriods: day.totalPeriods,
+        status
+      })
+    })
+    
+    // Add summary section
+    const summaryStartRow = worksheet.rowCount + 3
+    worksheet.getCell(`A${summaryStartRow}`).value = 'SUMMARY'
+    worksheet.getCell(`A${summaryStartRow}`).font = { bold: true, size: 14 }
+    
+    const summaryData = [
+      ['Student Name:', student.name],
+      ['PIN:', student.pin],
+      ['Department:', student.department],
+      ['Semester:', student.semester],
+      ['Shift:', student.shift],
+      [],
+      ['Total Working Days:', totalWorkingDays],
+      ['Present Days:', totalPresentDays],
+      ['Absent Days:', totalWorkingDays - totalPresentDays],
+      ['Attendance %:', `${Math.round((totalPresentDays / totalWorkingDays) * 100)}%`]
+    ]
+    
+    summaryData.forEach((row, index) => {
+      worksheet.getCell(`A${summaryStartRow + index + 1}`).value = row[0]
+      worksheet.getCell(`B${summaryStartRow + index + 1}`).value = row[1]
+      if (index >= 6) { // Style the statistics rows
+        worksheet.getCell(`A${summaryStartRow + index + 1}`).font = { bold: true }
+        worksheet.getCell(`B${summaryStartRow + index + 1}`).font = { bold: true }
+      }
+    })
+    
+    // Add monthly breakdown
+    const monthlyStartRow = summaryStartRow + summaryData.length + 2
+    worksheet.getCell(`A${monthlyStartRow}`).value = 'MONTHLY BREAKDOWN'
+    worksheet.getCell(`A${monthlyStartRow}`).font = { bold: true, size: 14 }
+    
+    // Monthly breakdown headers
+    worksheet.getCell(`A${monthlyStartRow + 1}`).value = 'Month'
+    worksheet.getCell(`B${monthlyStartRow + 1}`).value = 'Total Days'
+    worksheet.getCell(`C${monthlyStartRow + 1}`).value = 'Present Days'
+    worksheet.getCell(`D${monthlyStartRow + 1}`).value = 'Attendance %'
+    
+    worksheet.getRow(monthlyStartRow + 1).font = { bold: true }
+    
+    // Monthly breakdown data
+    Object.entries(monthlyData)
+      .sort((a, b) => new Date(a[0]) - new Date(b[0]))
+      .forEach(([month, data], index) => {
+        const row = monthlyStartRow + 2 + index
+        const percentage = Math.round((data.presentDays / data.totalDays) * 100)
+        
+        worksheet.getCell(`A${row}`).value = month
+        worksheet.getCell(`B${row}`).value = data.totalDays
+        worksheet.getCell(`C${row}`).value = data.presentDays
+        worksheet.getCell(`D${row}`).value = `${percentage}%`
+      })
+    
+    // Set response headers
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename=attendance_${student.pin}_${Date.now()}.xlsx`
+    )
+    
+    // Send Excel file
+    await workbook.xlsx.write(res)
+    res.end()
+    
+  } catch (error) {
+    console.error('Error exporting student attendance:', error)
+    res.status(500).json({ error: 'Internal server error' })
   }
 }

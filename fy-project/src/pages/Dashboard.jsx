@@ -21,7 +21,7 @@ const SHIFTS = ['1st shift', '2nd shift']
 // Student form options - CME only with correct years
 const STUDENT_DEPARTMENTS = ['CME']
 const STUDENT_YEARS = ['1st year', '2nd year', '3rd year']
-const STUDENT_SEMESTERS = ['1st semester', '2nd semester', '3rd semester', '4th semester', '5th semester', '6th semester']
+const STUDENT_SEMESTERS = ['1st semester', '3rd semester', '4th semester', '5th semester']
 const STUDENT_SHIFTS = ['1st shift', '2nd shift']
 
 // Simple Dropdown Component - Reliable and bug-free
@@ -126,10 +126,19 @@ export default function Dashboard() {
   const [deletePin, setDeletePin] = useState('')
   const [deletingStudent, setDeletingStudent] = useState(false)
 
-  // Dynamic subject options based on selected semester (removed - not needed for student management)
+  // Subject definitions by semester - matching backend timetable generator
+  const SUBJECTS = {
+    '1st semester': ['Maths', 'Physics', 'Chemistry', 'English', 'C', 'BCE'],
+    '3rd semester': ['Maths', 'Physics', 'Chemistry', 'English', 'C', 'BCE'], // Using same as 1st for now
+    '4th semester': ['SE', 'WT', 'COMP', 'Java', 'CN & CS'],
+    '5th semester': ['IME', 'BD & CC', 'AP', 'IoT', 'Python']
+  }
+
+  // Dynamic subject options based on selected semester
   const subjectOptions = useMemo(() => {
-    return [] // Return empty array since subject dropdown was removed
-  }, [])
+    if (!selection.year) return []
+    return SUBJECTS[selection.year] || []
+  }, [selection.year])
 
   // Check if can load summary
   const canLoad = useMemo(() => {
@@ -137,6 +146,7 @@ export default function Dashboard() {
       selection.department === 'cme' && 
       selection.year && 
       selection.section && 
+      selection.subject &&
       date
     )
   }, [selection, date])
@@ -150,6 +160,7 @@ export default function Dashboard() {
       section: '',
       subject: ''
     })
+    setSummary(null) // Clear previous summary when department changes
   }
 
   // Handle semester change - reset dependent fields
@@ -158,8 +169,10 @@ export default function Dashboard() {
     setSelection({ 
       ...selection, 
       year: value,
-      section: ''
+      section: '',
+      subject: ''
     })
+    setSummary(null) // Clear previous summary when semester changes
   }
 
   // Handle shift change
@@ -169,6 +182,16 @@ export default function Dashboard() {
       ...selection, 
       section: value
     })
+    setSummary(null) // Clear previous summary when shift changes
+  }
+
+  // Handle subject change
+  const handleSubjectChange = (value) => {
+    setSelection({ 
+      ...selection, 
+      subject: value
+    })
+    setSummary(null) // Clear previous summary when subject changes
   }
 
   async function loadSummary() {
@@ -182,6 +205,7 @@ export default function Dashboard() {
         year: selection.year, // frontend stores semester in selection.year
         semester: selection.year, // also send semester explicitly
         shift: selection.section, // frontend stores shift in selection.section
+        subject: selection.subject, // add subject parameter
         date
       }
       console.log('🔍 Dashboard API payload:', payload)
@@ -192,7 +216,11 @@ export default function Dashboard() {
       setSummary(summaryData)
     } catch (err) {
       console.error('❌ Dashboard API error:', err)
-      setError(err?.response?.data?.message || 'Failed to load dashboard')
+      if (err?.response?.status === 404) {
+        setError(err?.response?.data?.message || 'Subject not found on selected date')
+      } else {
+        setError(err?.response?.data?.message || 'Failed to load dashboard')
+      }
     } finally {
       setLoading(false)
     }
@@ -318,6 +346,16 @@ export default function Dashboard() {
             helperText="Select class shift"
           />
           
+          <SimpleDropdown
+            label="Subject"
+            value={selection.subject}
+            onChange={handleSubjectChange}
+            options={subjectOptions}
+            placeholder="Select Subject"
+            disabled={!selection.year}
+            helperText={!selection.year ? "Select semester first" : "Select subject for attendance"}
+          />
+          
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Date
@@ -369,7 +407,7 @@ export default function Dashboard() {
         <Card
           title="Today's Attendance"
           value={loading ? '…' : summary ? `${summary.todaysAttendance?.present || 0}/${summary.todaysAttendance?.totalMarked || 0}` : '-'}
-          sub="Present / Marked"
+          sub={`Present on ${date} for ${selection.subject || 'selected subject'}`}
           icon={
             <svg className="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -379,7 +417,7 @@ export default function Dashboard() {
         <Card
           title="Monthly Average"
           value={loading ? '…' : summary ? `${summary.monthlyAverage || 0}%` : '-'}
-          sub="Current month (subject-wise)"
+          sub={`${selection.subject || 'selected subject'} - ${new Date(date).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`}
           icon={
             <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />

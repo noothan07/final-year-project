@@ -3,11 +3,12 @@ import mongoose from 'mongoose'
 
 const facultySchema = new mongoose.Schema(
   {
+    employeeId: { type: String, required: true, unique: true, trim: true },
     name: { type: String, required: true, trim: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     password: { type: String, required: true },
     department: { type: String, required: true, trim: true },
-    role: { type: String, required: true, enum: ['staff'], default: 'staff' },
+    role: { type: String, required: true, enum: ['admin', 'staff'], default: 'staff' },
   },
   { timestamps: true }
 )
