@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getMonthlyReport, downloadMonthlyExcel, getWeeklyRegister, downloadWeeklyExcel } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
+import { AlertCircle, CheckCircle } from 'lucide-react'
 
 // Simple Dropdown Component - Reliable and bug-free
 function SimpleDropdown({ 
@@ -99,6 +100,17 @@ export default function Reports() {
   const [downloading, setDownloading] = useState(false)
   const [error, setError] = useState('')
   const [report, setReport] = useState(null)
+  const [message, setMessage] = useState('')
+  const [messageTimeout, setMessageTimeout] = useState(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (messageTimeout) {
+        clearTimeout(messageTimeout)
+      }
+    }
+  }, [messageTimeout])
 
   // Weekly register states
   const [weekStart, setWeekStart] = useState(() => {
@@ -144,15 +156,61 @@ export default function Reports() {
     [selection, weekStart]
   )
 
-  // Validate if selected week is future
-  const isFutureWeek = useMemo(() => {
+  // Validate if selected month is future or present working month
+  const isInvalidMonth = useMemo(() => {
+    if (!month) return false
+    
+    const selectedDate = new Date(month)
+    const today = new Date()
+    
+    // Get current month and year
+    const currentMonth = today.getMonth()
+    const currentYear = today.getFullYear()
+    
+    // Get selected month and year
+    const selectedMonth = selectedDate.getMonth()
+    const selectedYear = selectedDate.getFullYear()
+    
+    // Check if selected month is future
+    if (selectedYear > currentYear) return true
+    if (selectedYear === currentYear && selectedMonth > currentMonth) return true
+    
+    // Check if selected month is present working month (current month)
+    if (selectedYear === currentYear && selectedMonth === currentMonth) return true
+    
+    return false
+  }, [month])
+
+  // Message helper function
+  const setMessageWithTimeout = (message, duration = 3000) => {
+    // Clear existing timeout
+    if (messageTimeout) {
+      clearTimeout(messageTimeout)
+    }
+    
+    setMessage(message)
+    
+    if (message) {
+      const timeout = setTimeout(() => {
+        setMessage('')
+      }, duration)
+      setMessageTimeout(timeout)
+    }
+  }
+
+  // Validate if selected week is completed or still working
+  const isWeekIncomplete = useMemo(() => {
     if (!weekStart) return false
     const selectedDate = new Date(weekStart)
     const today = new Date()
-    const weekEnd = new Date(selectedDate)
-    weekEnd.setDate(selectedDate.getDate() + 5) // Add 5 days to get Saturday
     
-    return weekEnd > today
+    // Get selected week's Sunday (end of selected week)
+    const selectedWeekSunday = new Date(selectedDate)
+    selectedWeekSunday.setDate(selectedDate.getDate() + 6)
+    
+    // Check if selected week is still ongoing or in future
+    // Week is incomplete if Sunday >= today (week hasn't ended yet)
+    return selectedWeekSunday >= today
   }, [weekStart])
 
   // Handle department change - reset dependent fields
@@ -193,6 +251,13 @@ export default function Reports() {
 
   async function onLoad() {
     if (!canLoad) return
+    
+    // Check if selected month is future or present working month
+    if (isInvalidMonth) {
+      setMessageWithTimeout('Please select a proper month')
+      return
+    }
+    
     setLoading(true)
     setError('')
     try {
@@ -208,9 +273,9 @@ export default function Reports() {
   async function onLoadWeekly() {
     if (!canLoadWeekly) return
     
-    // Check if selected week is in the future
-    if (isFutureWeek) {
-      setWeeklyError('Cannot generate report for future weeks. Please select a past or current week.')
+    // Check if selected week is incomplete (still working or future)
+    if (isWeekIncomplete) {
+      setMessageWithTimeout('Please select a completed week')
       return
     }
     
@@ -274,6 +339,25 @@ export default function Reports() {
 
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
+      {/* Toast Message */}
+      {message && (
+        <motion.div
+          initial={{ opacity: 0, y: 20, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.95 }}
+          className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 px-3 sm:px-4 py-2 sm:py-3 rounded-lg shadow-lg flex items-center max-w-[95vw] sm:max-w-xl ${
+            message.includes('proper') || message.includes('completed') ? 'bg-red-500 text-white' : 'bg-green-500 text-white'
+          }`}
+        >
+          {message.includes('proper') || message.includes('completed') ? (
+            <AlertCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
+          ) : (
+            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2 flex-shrink-0" />
+          )}
+          <span className="text-base sm:text-lg font-medium truncate">{message}</span>
+        </motion.div>
+      )}
+
       {/* Report Selection */}
       <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Monthly Attendance Report</div>
@@ -472,24 +556,24 @@ export default function Reports() {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-xs">
+            <table className="min-w-full border-collapse text-sm">
               <thead>
                 <tr className="text-left font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="border-b border-blue-200 border-r border-blue-200 px-3 py-2 bg-blue-50 w-32">PIN</th>
-                  <th className="border-b border-blue-200 border-r border-blue-200 px-3 py-2 bg-blue-50 w-48">Name</th>
+                  <th className="border-b border-blue-200 border-r border-blue-200 px-4 py-3 bg-blue-50 w-32">PIN</th>
+                  <th className="border-b border-blue-200 border-r border-blue-200 px-4 py-3 bg-blue-50 w-48">Name</th>
                   {weeklyReport.weekDates.map((date, index) => (
-                    <th key={index} colSpan="7" className="border-b border-blue-200 border-r border-blue-200 px-1 py-1 bg-blue-50 text-center">
+                    <th key={index} colSpan="7" className="border-b border-blue-200 border-r border-blue-200 px-2 py-2 bg-blue-50 text-center">
                       <div>{date.formatted}</div>
                       <div className="font-normal">{date.day}</div>
                     </th>
                   ))}
                 </tr>
                 <tr className="text-left font-semibold uppercase tracking-wide text-slate-500">
-                  <th className="border-b border-blue-200 border-r border-blue-200 px-3 py-1 bg-blue-50 w-32"></th>
-                  <th className="border-b border-blue-200 border-r border-blue-200 px-3 py-1 bg-blue-50 w-48"></th>
+                  <th className="border-b border-blue-200 border-r border-blue-200 px-4 py-2 bg-blue-50 w-32"></th>
+                  <th className="border-b border-blue-200 border-r border-blue-200 px-4 py-2 bg-blue-50 w-48"></th>
                   {weeklyReport.weekDates.map((date, dateIndex) => (
                     ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map((period, periodIndex) => (
-                      <th key={`${dateIndex}-${periodIndex}`} className="border-b border-blue-200 border-r border-blue-200 px-1 py-1 bg-blue-50 text-center">
+                      <th key={`${dateIndex}-${periodIndex}`} className="border-b border-blue-200 border-r border-blue-200 px-2 py-2 bg-blue-50 text-center">
                         {period}
                       </th>
                     ))
@@ -499,18 +583,18 @@ export default function Reports() {
               <tbody>
                 {weeklyReport.students?.map((student) => (
                   <tr key={student.pin} className="hover:bg-blue-50/50 transition-colors">
-                    <td className="border-b border-blue-100 border-r border-blue-200 px-3 py-1 font-medium text-slate-900 bg-blue-50 w-32 whitespace-nowrap">
+                    <td className="border-b border-blue-100 border-r border-blue-200 px-4 py-2 font-medium text-slate-900 bg-blue-50 w-32 whitespace-nowrap">
                       {student.pin}
                     </td>
-                    <td className="border-b border-blue-100 border-r border-blue-200 px-3 py-1 text-slate-700 w-48 whitespace-nowrap">
+                    <td className="border-b border-blue-100 border-r border-blue-200 px-4 py-2 text-slate-700 w-48 whitespace-nowrap">
                       {student.name}
                     </td>
                     {weeklyReport.weekDates.map((date, dateIndex) => (
                       ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map((period, periodIndex) => {
                         const isPresent = weeklyReport.registerData[date.date]?.[student.pin]?.[periodIndex]
                         return (
-                          <td key={`${student.pin}-${dateIndex}-${periodIndex}`} className="border-b border-blue-100 border-r border-blue-200 px-1 py-1 text-center">
-                            <span className={`inline-flex items-center justify-center w-4 h-4 rounded text-xs font-bold ${
+                          <td key={`${student.pin}-${dateIndex}-${periodIndex}`} className="border-b border-blue-100 border-r border-blue-200 px-2 py-2 text-center">
+                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-sm font-bold ${
                               isPresent ? '' : 'text-red-600 bg-red-100'
                             }`}>
                               {isPresent ? 'P' : 'A'}
