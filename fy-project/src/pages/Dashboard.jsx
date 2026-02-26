@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
-
 import { createStudent, getDashboardSummary, getStudents, deleteStudent } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
 import { useAuth } from '../context/AuthContext'
@@ -113,6 +112,13 @@ export default function Dashboard() {
   const { selection, setSelection } = useClassSelection()
   const { faculty } = useAuth() // Add safety check for faculty data
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10))
+  
+  // Handle date change
+  const handleDateChange = (value) => {
+    setDate(value)
+    setSummary(null) // Clear previous summary when date changes
+    setError('') // Clear error messages
+  }
 
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -138,7 +144,7 @@ export default function Dashboard() {
   // Subject definitions by semester - matching backend timetable generator
   const SUBJECTS = {
     '1st semester': ['Maths', 'Physics', 'Chemistry', 'English', 'C', 'BCE'],
-    '3rd semester': ['Maths', 'Physics', 'Chemistry', 'English', 'C', 'BCE'], // Using same as 1st for now
+    '3rd semester': ['DSA', 'M2', 'DE', 'OS', 'DBMS'],
     '4th semester': ['SE', 'WT', 'COMP', 'Java', 'CN & CS'],
     '5th semester': ['IME', 'BD & CC', 'AP', 'IoT', 'Python']
   }
@@ -170,11 +176,11 @@ export default function Dashboard() {
       subject: ''
     })
     setSummary(null) // Clear previous summary when department changes
+    setError('') // Clear error messages
   }
 
   // Handle semester change - reset dependent fields
   const handleSemesterChange = (value) => {
-    console.log('🔍 Semester changed to:', value) // Debug semester change
     setSelection({ 
       ...selection, 
       year: value,
@@ -182,16 +188,17 @@ export default function Dashboard() {
       subject: ''
     })
     setSummary(null) // Clear previous summary when semester changes
+    setError('') // Clear error messages
   }
 
   // Handle shift change
   const handleShiftChange = (value) => {
-    console.log('🔍 Shift changed to:', value) // Debug shift change
     setSelection({ 
       ...selection, 
       section: value
     })
     setSummary(null) // Clear previous summary when shift changes
+    setError('') // Clear error messages
   }
 
   // Handle subject change
@@ -201,12 +208,15 @@ export default function Dashboard() {
       subject: value
     })
     setSummary(null) // Clear previous summary when subject changes
+    setError('') // Clear error messages
   }
 
   async function loadSummary() {
     if (!canLoad) return
     setError('')
     setLoading(true)
+    // Clear previous summary immediately to prevent showing old data
+    setSummary(null)
 
     try {
       const payload = {
@@ -217,27 +227,52 @@ export default function Dashboard() {
         subject: selection.subject, // add subject parameter
         date
       }
-      console.log('🔍 Dashboard API payload:', payload)
       const response = await getDashboardSummary(payload)
-      console.log('🔍 Dashboard API response:', response)
-      // Handle both response formats: direct data or wrapped in summary
-      const summaryData = response.summary || response
-      setSummary(summaryData)
-    } catch (err) {
-      console.error('❌ Dashboard API error:', err)
-      if (err?.response?.status === 404) {
-        setError(err?.response?.data?.message || 'Subject not found on selected date')
-      } else {
-        setError(err?.response?.data?.message || 'Failed to load dashboard')
+      
+      // Handle different response formats
+      let summaryData = response
+      
+      // Check if response is wrapped in a summary object
+      if (response.summary) {
+        summaryData = response.summary
       }
+      
+      // Check if response has data field
+      if (response.data) {
+        summaryData = response.data
+      }
+      
+      // Check if we have valid data
+      if (summaryData && (typeof summaryData === 'object') && Object.keys(summaryData).length > 0) {
+        setSummary(summaryData)
+        showToastMessage(`Summary loaded successfully for ${selection.subject}`, `Summary loaded for ${selection.subject}`, 'success')
+      } else {
+        setSummary(null)
+        setError(`No attendance data found for ${selection.subject} on ${date}`)
+        showToastMessage(`No attendance data found for ${selection.subject} on ${date}`, 'No data found', 'error')
+      }
+    } catch (err) {
+      // Clear summary on error
+      setSummary(null)
+      let errorMessage = 'Failed to load dashboard summary'
+      
+      if (err?.response?.status === 404) {
+        errorMessage = err?.response?.data?.message || `No attendance data found for ${selection.subject} on ${date}`
+        setError(errorMessage)
+      } else if (err?.response?.data?.message) {
+        errorMessage = err?.response?.data?.message
+        setError(errorMessage)
+      } else {
+        setError(errorMessage)
+      }
+      
+      showToastMessage(errorMessage, 'An error occurred while loading data', 'error')
     } finally {
       setLoading(false)
     }
   }
 
   async function loadStudents() {
-    console.log('🔍 Current selection state:', selection) // Debug selection state
-    
     if (!selection.department || !selection.year || !selection.section) {
       setError('Please select department, semester, and shift to load students')
       return
@@ -246,28 +281,16 @@ export default function Dashboard() {
     setLoadingStudents(true)
     setError('')
     
-    // Map frontend selection to backend query params
     const params = {
-      department: selection.department,
-      semester: selection.year, // frontend stores semester in selection.year
-      shift: selection.section  // frontend stores shift in selection.section
-    }
-    
-    // Debug the actual selection values
-    console.log('🔍 Selection values:', {
       department: selection.department,
       semester: selection.year,
       shift: selection.section
-    })
-    
-    console.log('🔍 Loading students with params:', params)
+    }
     
     try {
       const { students: data } = await getStudents(params)
       setStudents(data || [])
-      console.log(`✅ Loaded ${data?.length || 0} students`)
     } catch (err) {
-      console.error('❌ Load students error:', err)
       setError(err?.response?.data?.message || 'Failed to load students')
     } finally {
       setLoadingStudents(false)
@@ -291,9 +314,13 @@ export default function Dashboard() {
     setDeletePin(value)
   }
 
-  // Toast notification function
-  const showToastMessage = (message, type = 'success') => {
-    setStudentMsg(message)
+  // Toast notification function with responsive messages
+  // Customize messages below for different screen sizes:
+  // showToastMessage(largeScreenMessage, mobileMessage, type)
+  // - largeScreenMessage: For tablets and desktops (can be detailed)
+  // - mobileMessage: For mobile phones (medium length, not too short)
+  const showToastMessage = (largeScreenMessage, mobileMessage, type = 'success') => {
+    setStudentMsg({ large: largeScreenMessage, mobile: mobileMessage })
     setToastType(type)
     setShowToast(true)
     
@@ -328,35 +355,34 @@ export default function Dashboard() {
     // Validate PIN format
     const pinValidation = validatePin(studentForm.pin)
     if (!pinValidation.isValid) {
-      showToastMessage(pinValidation.message, 'error')
+      showToastMessage(pinValidation.message, 'PIN format is invalid', 'error')
       setSavingStudent(false)
       return
     }
 
     // Validate other required fields
     if (!studentForm.name || !studentForm.department || !studentForm.year || !studentForm.semester || !studentForm.shift) {
-      showToastMessage('Please fill all required fields', 'error')
+      showToastMessage('Please fill all required fields', 'All fields are required', 'error')
       setSavingStudent(false)
       return
     }
 
     try {
       await createStudent(studentForm)
-      showToastMessage('Student added successfully!', 'success')
+      showToastMessage('Student added successfully!', 'Student was added successfully', 'success')
       setStudentForm({ pin: '', name: '', department: '', year: '', semester: '', shift: '' })
       // Reload students list
       if (selection.department && selection.year && selection.section) {
         loadStudents()
       }
     } catch (err) {
-      console.error('Add student error:', err)
       // Handle duplicate PIN error specifically
       if (err?.response?.status === 409) {
-        showToastMessage('Student with this PIN already exists. No duplicate PIN numbers are allowed.', 'error')
+        showToastMessage('Student with this PIN already exists. No duplicate PIN numbers are allowed.', 'Student PIN already exists', 'error')
       } else if (err?.response?.data?.message?.includes('already exists') || err?.response?.data?.message?.includes('PIN already exists')) {
-        showToastMessage('Student with this PIN already exists. No duplicate PIN numbers are allowed.', 'error')
+        showToastMessage('Student with this PIN already exists. No duplicate PIN numbers are allowed.', 'Student PIN already exists', 'error')
       } else {
-        showToastMessage(err?.response?.data?.message || 'Failed to add student', 'error')
+        showToastMessage(err?.response?.data?.message || 'Failed to add student', 'Failed to add student', 'error')
       }
     } finally {
       setSavingStudent(false)
@@ -365,14 +391,14 @@ export default function Dashboard() {
 
   async function onDeleteStudent() {
     if (!deletePin) {
-      showToastMessage('Please enter a PIN to delete', 'error')
+      showToastMessage('Please enter a PIN to delete', 'Please enter student PIN', 'error')
       return
     }
 
     // Validate PIN format
     const pinValidation = validatePin(deletePin)
     if (!pinValidation.isValid) {
-      showToastMessage(pinValidation.message, 'error')
+      showToastMessage(pinValidation.message, 'PIN format is invalid', 'error')
       return
     }
     
@@ -380,7 +406,7 @@ export default function Dashboard() {
     
     try {
       await deleteStudent(deletePin)
-      showToastMessage(`Student ${deletePin} deleted successfully`, 'success')
+      showToastMessage(`Student ${deletePin} deleted successfully`, `Student ${deletePin} was deleted`, 'success')
       setDeletePin('')
       // Reload students list
       if (selection.department && selection.year && selection.section) {
@@ -388,9 +414,9 @@ export default function Dashboard() {
       }
     } catch (err) {
       if (err?.response?.status === 404) {
-        showToastMessage('Student with this PIN not found', 'error')
+        showToastMessage('Student with this PIN not found', 'Student PIN not found', 'error')
       } else {
-        showToastMessage(err?.response?.data?.message || 'Failed to delete student', 'error')
+        showToastMessage(err?.response?.data?.message || 'Failed to delete student', 'Failed to delete student', 'error')
       }
     } finally {
       setDeletingStudent(false)
@@ -451,34 +477,65 @@ export default function Dashboard() {
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => handleDateChange(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
             />
-            <p className="text-xs text-slate-500 mt-1">Select summary date</p>
+            <p className="text-xs text-slate-500 mt-1">Select summary date (past and present only)</p>
           </div>
         </div>
 
-        <button
-          onClick={loadSummary}
-          disabled={loading}
-          className="mt-4 rounded-xl bg-primary-blue px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50"
-        >
-          {loading ? 'Loading...' : 'Load Summary'}
-        </button>
+        <div className="mt-4 flex flex-col sm:flex-row gap-2">
+          <motion.button
+            onClick={loadSummary}
+            disabled={loading || !canLoad}
+            className="rounded-xl bg-primary-blue px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            whileHover={{ scale: loading || !canLoad ? 1 : 1.02 }}
+            whileTap={{ scale: loading || !canLoad ? 1 : 0.98 }}
+          >
+            {loading ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading Summary...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Load Summary
+              </>
+            )}
+          </motion.button>
 
-        <button
-          onClick={loadStudents}
-          disabled={loadingStudents || !selection.department || !selection.year || !selection.section}
-          className="mt-4 ml-2 rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50"
-        >
-          {loadingStudents ? 'Loading...' : 'Load Students'}
-        </button>
-
-        {error ? (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-            {error}
-          </div>
-        ) : null}
+          <motion.button
+            onClick={loadStudents}
+            disabled={loadingStudents || !selection.department || !selection.year || !selection.section}
+            className="rounded-xl bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            whileHover={{ scale: loadingStudents || !selection.department || !selection.year || !selection.section ? 1 : 1.02 }}
+            whileTap={{ scale: loadingStudents || !selection.department || !selection.year || !selection.section ? 1 : 0.98 }}
+          >
+            {loadingStudents ? (
+              <>
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading Students...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                Load Students
+              </>
+            )}
+          </motion.button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -494,7 +551,13 @@ export default function Dashboard() {
         />
         <Card
           title="Today's Attendance"
-          value={loading ? '…' : summary ? `${summary.todaysAttendance?.present || 0}/${summary.todaysAttendance?.totalMarked || 0}` : '-'}
+          value={loading ? '…' : summary ? (
+            summary.todaysAttendance ? 
+              `${summary.todaysAttendance.present || 0}/${summary.todaysAttendance.total || summary.totalStudents || 0}` :
+              summary.present !== undefined && summary.total !== undefined ?
+                `${summary.present}/${summary.total}` :
+                '-'
+          ) : '-'}
           sub={`Present on ${date} for ${selection.subject || 'selected subject'}`}
           icon={
             <svg className="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -509,16 +572,6 @@ export default function Dashboard() {
           icon={
             <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-          }
-        />
-        <Card
-          title="Loaded Students"
-          value={loadingStudents ? '…' : students.length}
-          sub="In current class"
-          icon={
-            <svg className="h-6 w-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 21v-2a4 4 0 00-8 0H5a4 4 0 00-8 0v2a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           }
         />
@@ -539,7 +592,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {students.slice(0, 15).map((student) => (
+                {students.slice(0, 20).map((student) => (
                   <tr key={student._id}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{student.pin}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{student.name}</td>
@@ -550,9 +603,9 @@ export default function Dashboard() {
                 ))}
               </tbody>
             </table>
-            {students.length > 15 && (
+            {students.length > 20 && (
               <div className="mt-4 text-sm text-gray-500 text-center">
-                Showing 15 of {students.length} students
+                Showing 20 of {students.length} students
               </div>
             )}
           </div>
@@ -575,21 +628,6 @@ export default function Dashboard() {
                 <span>Auto-generates short PIN</span>
               </div>
             </div>
-            
-            {/* Warning Message
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-              <div className="flex items-start space-x-2">
-                <div className="shrink-0">
-                  <svg className="w-5 h-5 text-amber-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-amber-800">Be careful while adding students</p>
-                  <p className="text-xs text-amber-700 mt-1">PIN must be unique and follow format XXXXX-XX-XXX</p>
-                </div>
-              </div>
-            </div> */}
 
             <form onSubmit={onAddStudent} id="student-form" className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -742,7 +780,7 @@ export default function Dashboard() {
 
         {/* Separate Remove Student Section */}
         <div className="mt-6">
-          <div className="bg-white rounded-xl border border-gray-200  p-4 sm:p-6">
+          <div className="bg-white rounded-xl border border-blue-100  p-4 sm:p-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6">
               <div className="flex items-center space-x-3">
@@ -893,35 +931,36 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Toast Notification */}
+      {/* Simplified Toast Notification */}
       {showToast && (
         <motion.div
-          initial={{ opacity: 0, y: 50, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 50, scale: 0.9 }}
-          className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.2 }}
+          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm mx-4 px-4"
         >
-          <div className={`px-6 py-4 rounded-xl shadow-2xl backdrop-blur-sm border flex items-center space-x-3 ${
+          <div className={`px-4 py-3 rounded-lg shadow-lg border flex items-center space-x-3 ${
             toastType === 'success' 
-              ? 'bg-linear-to-r from-green-500 to-green-600 text-white border-green-400 shadow-green-500/25' 
-              : 'bg-linear-to-r from-red-500 to-red-600 text-white border-red-400 shadow-red-500/25'
+              ? 'bg-green-500 text-white border-green-400' 
+              : 'bg-red-500 text-white border-red-400'
           }`}>
             <div className="shrink-0">
               {toastType === 'success' ? (
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                </div>
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
               ) : (
-                <div className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </div>
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               )}
             </div>
-            <span className="text-sm font-semibold tracking-wide">{studentMsg}</span>
+            <span className="text-sm font-medium truncate">
+              {/* Full message for larger screens, medium for mobile */}
+              <span className="hidden sm:inline">{studentMsg?.large || studentMsg?.mobile || studentMsg}</span>
+              <span className="sm:hidden">{studentMsg?.mobile || studentMsg?.large || studentMsg}</span>
+            </span>
           </div>
         </motion.div>
       )}
