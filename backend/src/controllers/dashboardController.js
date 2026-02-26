@@ -155,21 +155,21 @@ export async function getSummary(req, res) {
       const uniquePresentStudents = new Set()
       const uniqueMarkedStudents = new Set()
       
-      // Only use the first period's data for today's attendance card
-      const firstPeriodRecord = todays.reduce((earliest, current) => {
-        return (!earliest || current.period < earliest.period) ? current : earliest
+      // Use the LATEST period's data for today's attendance card
+      const latestPeriodRecord = todays.reduce((latest, current) => {
+        return (!latest || current.period > latest.period) ? current : latest
       }, null)
       
       console.log(`🔍 Found ${todays.length} attendance records for ${subject} on ${dateObj.toISOString().slice(0, 10)}`)
-      console.log(`🔍 First period record:`, firstPeriodRecord)
+      console.log(`🔍 Latest period record:`, latestPeriodRecord)
       
-      if (firstPeriodRecord) {
+      if (latestPeriodRecord) {
         // Add all presents to unique set
-        const presentsInClass = (firstPeriodRecord.presents || []).filter(pin => pins.includes(pin))
+        const presentsInClass = (latestPeriodRecord.presents || []).filter(pin => pins.includes(pin))
         presentsInClass.forEach(pin => uniquePresentStudents.add(pin))
         
         // Add all marked students (present + absent) to unique set
-        const markedStudents = [...(firstPeriodRecord.presents || []), ...(firstPeriodRecord.absentees || [])]
+        const markedStudents = [...(latestPeriodRecord.presents || []), ...(latestPeriodRecord.absentees || [])]
         const markedInClass = markedStudents.filter(pin => pins.includes(pin))
         markedInClass.forEach(pin => uniqueMarkedStudents.add(pin))
         
