@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { getStudentAttendance, downloadStudentAttendanceExcel } from '../services/api'
-import { useToast } from '../components/Toast'
 
 export default function StudentAttendance() {
   const [pin, setPin] = useState('')
@@ -10,15 +9,35 @@ export default function StudentAttendance() {
   const [showResults, setShowResults] = useState(false)
   const [loading, setLoading] = useState(false)
   const [attendanceData, setAttendanceData] = useState(null)
-  
-  const { success, error, ToastContainer } = useToast()
+  const [toast, setToast] = useState({ show: false, message: '', type: '' })
+  const [downloading, setDownloading] = useState(false)
+  const [printing, setPrinting] = useState(false)
+
+  // Validate PIN format (e.g., 23010-CM-041)
+  const validatePinFormat = (pin) => {
+    const pinPattern = /^\d{5}-[A-Z]{2}-\d{3}$/
+    return pinPattern.test(pin)
+  }
 
   const departments = ['cme','eee', 'mech', 'civil', 'automobile', 'architecture']
   const semesters = ['1st semester', '3rd semester', '4th semester', '5th semester']
 
+  const showToast = (message, type) => {
+    setToast({ show: true, message, type })
+    setTimeout(() => {
+      setToast({ show: false, message: '', type: '' })
+    }, 3000)
+  }
+
   const handleSearch = async () => {
     if (!pin || !department || !semester) {
-      error('Please fill in all fields')
+      showToast('Please fill in all fields', 'error')
+      return
+    }
+
+    // Validate PIN format
+    if (!validatePinFormat(pin)) {
+      showToast('It\'s a wrong format PIN number', 'error')
       return
     }
 
@@ -27,16 +46,22 @@ export default function StudentAttendance() {
       const data = await getStudentAttendance(pin, department, semester)
       setAttendanceData(data)
       setShowResults(true)
-      success('Attendance data loaded successfully')
+      showToast('Attendance data loaded successfully', 'success')
     } catch (err) {
       console.error('Error fetching attendance:', err)
-      error(err.response?.data?.error || 'Failed to fetch attendance data')
+      if (err.response?.status === 404) {
+        showToast('Student not found', 'error')
+      } else {
+        showToast(err.response?.data?.error || 'Failed to fetch attendance data', 'error')
+      }
     } finally {
       setLoading(false)
     }
   }
 
   const handlePrintSummary = () => {
+    setPrinting(true)
+    
     const printContent = `
       <html>
         <head>
@@ -112,12 +137,18 @@ export default function StudentAttendance() {
     const printWindow = window.open('', '_blank')
     printWindow.document.write(printContent)
     printWindow.document.close()
-    printWindow.print()
+    
+    // Add a small delay to show the loading state
+    setTimeout(() => {
+      printWindow.print()
+      setPrinting(false)
+    }, 500)
   }
 
   const handleDownloadExcel = async () => {
     if (!pin) return
     
+    setDownloading(true)
     try {
       const response = await downloadStudentAttendanceExcel(pin)
       const url = window.URL.createObjectURL(new Blob([response.data]))
@@ -128,27 +159,33 @@ export default function StudentAttendance() {
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
-      success('Excel report downloaded successfully')
+      showToast('Excel report downloaded successfully', 'success')
     } catch (err) {
       console.error('Error downloading Excel:', err)
-      error('Failed to download Excel report')
+      showToast('Failed to download Excel report', 'error')
+    } finally {
+      setDownloading(false)
     }
   }
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-0 sm:h-16 space-y-3 sm:space-y-0">
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-transparent to-white/40"></div>
+        <div className="absolute top-0 left-0 right-0 h-px bg-white/80"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="flex flex-row sm:flex-row justify-between items-center py-4 sm:py-0 sm:h-16 space-y-3 sm:space-y-0">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
                 </svg>
               </div>
-              <span className="text-lg sm:text-xl font-semibold text-slate-900">AttendMark - Student View</span>
+              <span className="text-lg sm:text-xl font-semibold text-gray-800">
+                <span className="hidden sm:inline">AttendMark - </span>Student View
+              </span>
             </div>
             <button
               onClick={() => window.location.href = '/'}
@@ -157,7 +194,7 @@ export default function StudentAttendance() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span>Back to Home</span>
+              <span>Home</span>
             </button>
           </div>
         </div>
@@ -170,17 +207,12 @@ export default function StudentAttendance() {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-3xl sm:text-4xl font-bold text-slate-900 mb-4">
+          <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 mb-4">
             Student Attendance View
           </h1>
-          <p className="text-lg text-slate-600">
+          <p className="text-md text-slate-600">
             View your attendance records without login
           </p>
-          <div className="mt-4 p-4 bg-green-50 rounded-xl border border-green-200 inline-block">
-            <p className="text-sm text-green-800">
-              <strong>Read-Only Access:</strong> Students can only view attendance. No editing permissions.
-            </p>
-          </div>
         </motion.div>
 
         {/* Search Form */}
@@ -261,7 +293,7 @@ export default function StudentAttendance() {
             className="space-y-8"
           >
             {/* Summary Card */}
-            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 sm:p-8 border border-blue-100">
+            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 sm:p-8 border border-blue-100 shadow-sm">
               {/* Student Info Card */}
               {attendanceData?.student?.name && (
                 <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200">
@@ -337,18 +369,47 @@ export default function StudentAttendance() {
               <div className="flex flex-col sm:flex-row gap-4">
                 <button 
                   onClick={handleDownloadExcel}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center"
+                  disabled={downloading}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors flex items-center justify-center disabled:bg-blue-400 disabled:cursor-not-allowed"
                 >
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  Download Excel Report
+                  {downloading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Downloading...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      Download Excel Report
+                    </>
+                  )}
                 </button>
                 <button 
                   onClick={handlePrintSummary}
-                  className="px-6 py-3 bg-white text-blue-600 font-medium rounded-xl border-2 border-blue-600 hover:bg-blue-50 transition-colors"
+                  disabled={printing}
+                  className="px-6 py-3 bg-white text-blue-600 font-medium rounded-xl border-2 border-blue-600 hover:bg-blue-50 transition-colors disabled:bg-blue-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  Print Summary
+                  {printing ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Preparing...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                      </svg>
+                      Print Summary
+                    </>
+                  )}
                 </button>
               </div>
             </div>
@@ -372,7 +433,11 @@ export default function StudentAttendance() {
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-lg font-semibold text-green-600">
+                      <div className={`text-lg font-semibold ${
+                        month.percentage >= 75 ? 'text-green-600' : 
+                        month.percentage >= 60 ? 'text-yellow-600' : 
+                        'text-red-600'
+                      }`}>
                         {month.percentage}%
                       </div>
                       <div className="text-sm text-slate-600">Attendance</div>
@@ -395,8 +460,6 @@ export default function StudentAttendance() {
                 <div>
                   <h4 className="font-semibold text-blue-900 mb-2">Student Access Information</h4>
                   <ul className="text-sm text-blue-800 space-y-1">
-                    <li>• This is a read-only view of your attendance records</li>
-                    <li>• No login required for students to view attendance</li>
                     <li>• Attendance is updated in real-time by faculty</li>
                     <li>• Excel reports include detailed monthly breakdown</li>
                     <li>• Contact faculty for any attendance discrepancies</li>
@@ -407,7 +470,26 @@ export default function StudentAttendance() {
           </motion.div>
         )}
       </div>
-      <ToastContainer />
+      
+      {/* Custom Toast */}
+      {toast.show && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-50 w-max">
+          <motion.div
+            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ 
+              duration: 0.3, 
+              ease: [0.4, 0.0, 0.2, 1] 
+            }}
+            className={`px-4 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg text-white font-medium text-sm sm:text-base text-center max-w-xs ${
+              toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'
+            }`}
+          >
+            {toast.message}
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }
