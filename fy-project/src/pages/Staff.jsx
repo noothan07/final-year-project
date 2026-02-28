@@ -2,7 +2,9 @@ import { motion } from 'framer-motion'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { UserPlus, Users, Trash2, Shield, AlertCircle, CheckCircle, X, Eye, EyeOff } from 'lucide-react'
-import { apiCall, API_ENDPOINTS } from '../config/api.js'
+import { apiCall, API_ENDPOINTS, getApiConfig } from '../config/api.js'
+import ConfirmDialog from '../components/ConfirmDialog'
+import PageHeader from '../components/PageHeader'
 
 export default function Staff() {
   const { faculty } = useAuth()
@@ -21,6 +23,9 @@ export default function Staff() {
   })
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState('')
+  const [showToast, setShowToast] = useState(false)
+  const [toastType, setToastType] = useState('success') // 'success' or 'error'
+  const [toastMessage, setToastMessage] = useState({ large: '', mobile: '' })
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showDeletePassword, setShowDeletePassword] = useState(false)
@@ -28,6 +33,9 @@ export default function Staff() {
   const [messageTimeout, setMessageTimeout] = useState(null)
   const [isPasswordFocused, setIsPasswordFocused] = useState(false)
   const [passwordStrength, setPasswordStrength] = useState(0)
+  const [selectedStaffId, setSelectedStaffId] = useState('')
+  const [showRegisterConfirmDialog, setShowRegisterConfirmDialog] = useState(false)
+  const [pendingStaffData, setPendingStaffData] = useState(null)
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -76,6 +84,18 @@ export default function Staff() {
       console.error('Error fetching staff list:', error)
       setMessage(error.message || 'Error fetching staff list')
     }
+  }
+
+  // Toast notification function
+  const showToastMessage = (largeScreenMessage, mobileMessage, type = 'success') => {
+    setToastMessage({ large: largeScreenMessage, mobile: mobileMessage })
+    setToastType(type)
+    setShowToast(true)
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+      setShowToast(false)
+    }, 3000)
   }
 
   const setMessageWithTimeout = (message, duration = 3000) => {
@@ -203,31 +223,95 @@ export default function Staff() {
       return
     }
 
-    // Check for weak password and show toast only when clicking register
-    const hasUppercase = /[A-Z]/.test(formData.password)
-    const hasLowercase = /[a-z]/.test(formData.password)
-    const hasNumber = /\d/.test(formData.password)
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password)
-    const hasRepeatedChars = /^(.)\1{5,}$/.test(formData.password)
-    
-    // Check if password is weak - show toast message
-    if (formData.password.length < 6 || !hasUppercase || !hasLowercase || !hasNumber || hasRepeatedChars || !hasSpecialChar) {
-      setMessageWithTimeout('Please choose a stronger password')
+    // If no validation errors, show confirmation dialog
+    setPendingStaffData(formData)
+    setShowRegisterConfirmDialog(true)
+  }
+
+  const handleDelete = async (employeeId) => {
+    if (!deleteData.password) {
+      setMessageWithTimeout('Password is required for deletion')
       return
     }
 
+    // Validate password format
+    if (deleteData.password.length < 6) {
+      setMessageWithTimeout('Password must be at least 6 characters')
+      return
+    }
+
+    // Direct deletion without confirmation dialog
     setIsLoading(true)
     setMessage('')
+
+    try {
+      // Custom API call to avoid automatic logout on 401
+      const config = getApiConfig()
+      const url = `${config.BASE_URL}${API_ENDPOINTS.STAFF_DELETE(employeeId)}`
+      const token = localStorage.getItem('token')
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({
+          password: deleteData.password
+        })
+      })
+
+      // Handle response manually to avoid automatic logout
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        
+        if (response.status === 401) {
+          // Handle 401 without logging out - show toast error
+          showToastMessage('Password is not matching. Please enter a valid password.', 'Wrong password', 'error')
+          setDeleteData(prev => ({ ...prev, password: '' }))
+          setSelectedStaffId(employeeId)
+          return
+        }
+        
+        if (response.status === 403) {
+          throw new Error('Access denied. You do not have permission to perform this action.')
+        }
+        
+        if (response.status === 404) {
+          throw new Error('Staff member not found.')
+        }
+        
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+
+      setMessageWithTimeout('Staff deleted successfully!')
+      setDeleteData({ employeeId: '', password: '' })
+      setSelectedStaffId('')
+      fetchStaffList() // Refresh staff list
+    } catch (error) {
+      setMessageWithTimeout(error.message || 'Error deleting staff')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+
+  const confirmRegisterStaff = async () => {
+    setIsLoading(true)
+    setMessage('')
+    setShowRegisterConfirmDialog(false)
 
     try {
       const response = await apiCall(API_ENDPOINTS.STAFF_REGISTER, {
         method: 'POST',
         body: JSON.stringify({
-          employeeId: formData.employeeId,
-          name: formData.name,
-          email: formData.email,
-          department: formData.department,
-          password: formData.password
+          employeeId: pendingStaffData?.employeeId || formData.employeeId,
+          name: pendingStaffData?.name || formData.name,
+          email: pendingStaffData?.email || formData.email,
+          department: pendingStaffData?.department || formData.department,
+          password: pendingStaffData?.password || formData.password
         })
       })
 
@@ -242,78 +326,34 @@ export default function Staff() {
         password: '',
         confirmPassword: ''
       })
+      setPendingStaffData(null)
       fetchStaffList() // Refresh staff list
     } catch (error) {
-      setMessageWithTimeout(error.message || 'Error registering staff')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleDelete = async (employeeId) => {
-    if (!deleteData.password) {
-      setMessageWithTimeout('Password is required for deletion')
-      return
-    }
-
-    setIsLoading(true)
-    setMessage('')
-
-    try {
-      const response = await apiCall(API_ENDPOINTS.STAFF_DELETE(employeeId), {
-        method: 'DELETE',
-        body: JSON.stringify({
-          password: deleteData.password
-        })
-      })
-
-      const data = await response.json()
-
-      setMessageWithTimeout('Staff deleted successfully!')
-      setDeleteData({ employeeId: '', password: '' })
-      fetchStaffList() // Refresh staff list
-    } catch (error) {
-      setMessageWithTimeout(error.message || 'Error deleting staff')
+      if (error.message?.includes('already exists') || error.status === 409) {
+        setMessageWithTimeout('Staff with this Employee ID already exists.')
+      } else {
+        setMessageWithTimeout(error.message || 'Error registering staff')
+      }
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen py-4 sm:py-8">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto sm:px-4 lg:px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* Header */}
-          <div className="bg-white rounded-2xl border border-blue-100 p-4 sm:p-6 mb-6 sm:mb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center space-x-3 sm:space-x-4">
-                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-                  <Users className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" />
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Staff Management</h1>
-                  <p className="text-gray-600 mt-1 text-sm sm:text-base">Manage and register staff members</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2 text-sm text-gray-500">
-                <Shield className="w-4 h-4" />
-                <span className="hidden sm:inline">Admin Access</span>
-                <span className="sm:hidden">Admin</span>
-              </div>
-            </div>
-          </div>
-
           {/* Staff List Section */}
           {staffList.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white rounded-2xl border border-blue-100 p-4 sm:p-6 mb-6 sm:mb-8"
+              className="bg-white rounded-2xl border border-blue-200 p-4 sm:p-6 mb-6 sm:mb-8"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-800 flex items-center">
@@ -459,7 +499,7 @@ export default function Staff() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white rounded-2xl border border-blue-100 p-4 sm:p-6"
+            className="bg-white rounded-2xl border border-blue-200 p-4 sm:p-6"
           >
             <div className="flex items-center mb-4 sm:mb-6">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
@@ -549,12 +589,13 @@ export default function Staff() {
                     }`}
                   >
                     <option value="">Select Department</option>
-                    <option value="Computer Science">Computer Science</option>
-                    <option value="Information Technology">Information Technology</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Mechanical">Mechanical</option>
+                    <option value="CSE">CSE</option>
+                    <option value="ECE">ECE</option>
                     <option value="Civil">Civil</option>
-                    <option value="Electrical">Electrical</option>
+                    <option value="EEE">EEE</option>
+                    <option value="Architecture">Architecture</option>
+                    <option value="Mechanical">Mechanical</option>
+                    <option value="Automobile">Automobile</option>
                     <option value="General">General</option>
                   </select>
                   {errors.department && (
@@ -743,6 +784,56 @@ export default function Staff() {
           </motion.div>
         </motion.div>
       </div>
+      
+      {/* Register Staff Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={showRegisterConfirmDialog}
+        onClose={() => {
+          setShowRegisterConfirmDialog(false)
+          setPendingStaffData(null)
+        }}
+        onConfirm={confirmRegisterStaff}
+        title="Register Staff"
+        message={`Are you sure you want to register staff member ${pendingStaffData?.name || pendingStaffData?.employeeId || formData.name || formData.employeeId}? This action will create a new staff account.`}
+        confirmText="Register Staff"
+        cancelText="Cancel"
+        type="success"
+      />
+      
+      {/* Toast Notification */}
+      {showToast && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 20 }}
+          transition={{ duration: 0.2 }}
+          className="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-sm mx-4 px-4"
+        >
+          <div className={`px-4 py-3 rounded-lg shadow-lg border flex items-center space-x-3 ${
+            toastType === 'success' 
+              ? 'bg-green-500 text-white border-green-400' 
+              : 'bg-red-500 text-white border-red-400'
+          }`}>
+            <div className="shrink-0">
+              {toastType === 'success' ? (
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              )}
+            </div>
+            <span className="text-sm font-medium truncate">
+              {/* Full message for larger screens, medium for mobile */}
+              <span className="hidden sm:inline">{toastMessage?.large || toastMessage?.mobile || toastMessage}</span>
+              <span className="sm:hidden">{toastMessage?.mobile || toastMessage?.large || toastMessage}</span>
+            </span>
+          </div>
+        </motion.div>
+      )}
+      
     </div>
   )
 }

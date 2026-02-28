@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getStudents, markAttendance as markAttendanceAPI } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
+import PageHeader from '../components/PageHeader'
 
 // Simple Dropdown Component - Reliable and bug-free
 function SimpleDropdown({ 
@@ -495,7 +496,8 @@ export default function Attendance() {
   // }, [selection, selectedPeriod])
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
+    <>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Class Selection */}
       <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Class & Date Selection</div>
@@ -693,5 +695,6 @@ export default function Attendance() {
         </div>
       </div>
     </motion.div>
+    </>
   )
 }

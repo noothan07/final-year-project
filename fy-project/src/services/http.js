@@ -29,7 +29,13 @@ http.interceptors.response.use(
     return response
   },
   (error) => {
-    console.error('HTTP Error:', error.response?.status, error.response?.data)
+    const status = error.response?.status
+    const data = error.response?.data
+    if (status === 400 || status === 409) {
+      console.warn('HTTP Error:', status, data)
+    } else {
+      console.error('HTTP Error:', status, data)
+    }
     return Promise.reject(error)
   }
 )

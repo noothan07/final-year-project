@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
-import ThemeWrapper from '../components/ThemeWrapper'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -81,8 +80,7 @@ export default function Login() {
   }
 
   return (
-    <ThemeWrapper>
-      <div className="min-h-screen flex items-center justify-center px-4 py-10">
+      <div className="min-h-screen flex items-center justify-center px-4 py-10 bg-blue-100">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -121,7 +119,7 @@ export default function Login() {
                       ? 'border-red-300 focus:border-red-400 focus:ring-red-200' 
                       : 'border-blue-200 focus:border-blue-400 focus:ring-blue-200'
                   }`}
-                  placeholder="faculty@college.edu"
+                  placeholder="eg., faculty@college.edu"
                   required
                 />
                 {errors.email && (
@@ -165,6 +163,5 @@ export default function Login() {
           </div>
         </motion.div>
       </div>
-    </ThemeWrapper>
   )
 }

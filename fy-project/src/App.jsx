@@ -1,7 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
-
 import ProtectedRoute from './components/ProtectedRoute.jsx'
-import ThemeWrapper from './components/ThemeWrapper.jsx'
 import Shell from './components/Shell.jsx'
 import Attendance from './pages/Attendance.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -10,10 +8,10 @@ import Login from './pages/Login.jsx'
 import Reports from './pages/Reports.jsx'
 import Staff from './pages/Staff.jsx'
 import StudentAttendance from './pages/StudentAttendance.jsx'
+import StudentManagement from './pages/StudentManagement.jsx'
 
 export default function App() {
   return (
-    <ThemeWrapper>
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
@@ -30,10 +28,10 @@ export default function App() {
           <Route path="/attendance" element={<Attendance />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/staff" element={<Staff />} />
+          <Route path="/student-management" element={<StudentManagement />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
-    </ThemeWrapper>
   )
 }
