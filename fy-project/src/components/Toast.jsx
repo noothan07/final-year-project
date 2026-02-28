@@ -28,7 +28,7 @@ const Toast = ({ message, type = 'info', onClose, duration = 5000 }) => {
       initial={{ opacity: 0, y: 50, scale: 0.95 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: 50, scale: 0.95 }}
-      className={`fixed bottom-4 right-4 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${colors[type]}`}
+      className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${colors[type]}`}
     >
       {icons[type]}
       <span className="font-medium">{message}</span>
@@ -47,7 +47,8 @@ export const useToast = () => {
 
   const addToast = (message, type = 'info') => {
     const id = Date.now()
-    setToasts(prev => [...prev, { id, message, type }])
+    // Replace existing toasts instead of adding multiple
+    setToasts([{ id, message, type }])
   }
 
   const removeToast = (id) => {
