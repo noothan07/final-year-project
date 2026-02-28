@@ -170,13 +170,11 @@ export default function StudentAttendance() {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-slate-50 to-blue-50">
+    <div className="min-h-screen">
       {/* Header */}
-      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-white/60 via-transparent to-white/40"></div>
-        <div className="absolute top-0 left-0 right-0 h-px bg-white/80"></div>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="flex flex-row sm:flex-row justify-between items-center py-4 sm:py-0 sm:h-16 space-y-3 sm:space-y-0">
+      <div className="bg-white/90 backdrop-blur-sm shadow-sm border-b border-blue-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-0 sm:h-16 space-y-3 sm:space-y-0">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

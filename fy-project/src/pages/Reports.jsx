@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { getMonthlyReport, downloadMonthlyExcel, getWeeklyRegister, downloadWeeklyExcel } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
 import { AlertCircle, CheckCircle } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
 
 // Simple Dropdown Component - Reliable and bug-free
 function SimpleDropdown({ 
@@ -338,7 +339,8 @@ export default function Reports() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 mt-5 sm:mt-10">
+    <>
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       {/* Toast Message */}
       {message && (
         <motion.div
@@ -359,20 +361,20 @@ export default function Reports() {
       )}
 
       {/* Report Selection */}
-      <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+      <div className="rounded-2xl border border-blue-200 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Monthly Attendance Report</div>
         <div className="mt-1 text-sm text-slate-600">
           Select class, subject, and month to generate attendance reports.
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 overflow-visible">
+        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 overflow-visible">
           <SimpleDropdown
             label="Department"
             value={selection.department}
             onChange={handleDepartmentChange}
             options={DEPARTMENTS}
             placeholder="Select Department"
-            helperText="Only CME is available"
+            
           />
           
           <SimpleDropdown
@@ -382,7 +384,7 @@ export default function Reports() {
             options={SEMESTERS}
             placeholder="Select Semester"
             disabled={!selection.department || selection.department !== 'cme'}
-            helperText={!selection.department ? "Select department first" : "Select semester"}
+            
           />
           
           <SimpleDropdown
@@ -391,7 +393,7 @@ export default function Reports() {
             onChange={handleShiftChange}
             options={SHIFTS}
             placeholder="Select Shift"
-            helperText="Select class shift"
+            
           />
           
           <SimpleDropdown
@@ -401,7 +403,7 @@ export default function Reports() {
             options={subjectOptions}
             placeholder="Select Subject"
             disabled={!selection.year || selection.department !== 'cme'}
-            helperText={!selection.year ? "Select semester first" : "Available subjects for CME"}
+            
           />
           
           <div>
@@ -414,7 +416,7 @@ export default function Reports() {
               onChange={(e) => setMonth(e.target.value)}
               className="w-full rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
             />
-            <p className="text-xs text-slate-500 mt-1">Select report month</p>
+            
           </div>
         </div>
 
@@ -447,7 +449,7 @@ export default function Reports() {
 
       {/* Report Results */}
       {report && (
-        <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+        <div className="rounded-2xl border border-blue-200 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-base font-semibold text-primary-blue">Attendance Summary</div>
@@ -494,13 +496,13 @@ export default function Reports() {
       )}
 
       {/* Weekly Register Section */}
-      <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+      <div className="rounded-2xl border border-blue-200 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Weekly Attendance Register</div>
         <div className="mt-1 text-sm text-slate-600">
           Generate attendance register in book format for a specific week (Monday to Saturday).
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label className="block text-xs font-medium text-slate-700 mb-1">
               Week Start Date
@@ -511,7 +513,6 @@ export default function Reports() {
               onChange={(e) => setWeekStart(e.target.value)}
               className="w-full rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
             />
-            <p className="text-xs text-slate-500 mt-1">Select Monday of the week</p>
           </div>
         </div>
 
@@ -544,7 +545,7 @@ export default function Reports() {
 
       {/* Weekly Register Results */}
       {weeklyReport && (
-        <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
+        <div className="rounded-2xl border border-blue-200 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
           <div className="flex items-center justify-between gap-3 mb-4">
             <div>
               <div className="text-base font-semibold text-primary-blue">Weekly Attendance Register</div>
@@ -611,5 +612,6 @@ export default function Reports() {
         </div>
       )}
     </motion.div>
+    </>
   )
 }

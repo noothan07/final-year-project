@@ -29,13 +29,13 @@ http.interceptors.response.use(
     return response
   },
   (error) => {
-    console.error('HTTP Error:', error.response?.status, error.response?.data)
-    
-    // Check if this is the specific validation error we're looking for
-    if (error.response?.data?.message?.includes('These students are not in the selected class')) {
-      console.log('🔍 Found the validation error in HTTP interceptor!')
+    const status = error.response?.status
+    const data = error.response?.data
+    if (status === 400 || status === 409) {
+      console.warn('HTTP Error:', status, data)
+    } else {
+      console.error('HTTP Error:', status, data)
     }
-    
     return Promise.reject(error)
   }
 )

@@ -122,3 +122,39 @@ export async function getClassAttendance(params) {
   const { data } = await http.get('/api/attendance/class', { params })
   return data
 }
+
+// Dashboard chart API functions
+export async function getMonthlySummary(params) {
+  const { data } = await http.get('/api/dashboard/monthly-summary', { params })
+  return data
+}
+
+export async function getWeeklySummary(params) {
+  const { data } = await http.get('/api/dashboard/weekly-summary', { params })
+  return data
+}
+
+export async function getTodaySummary(params) {
+  const { data } = await http.get('/api/dashboard/today-summary', { params })
+  return data
+}
+
+export async function getSubjectSummary(params) {
+  const { data } = await http.get('/api/dashboard/subject-summary', { params })
+  return data
+}
+
+export async function getAttendanceDistribution(params) {
+  const { data } = await http.get('/api/dashboard/distribution', { params })
+  return data
+}
+
+export async function getLowAttendanceStudents(params) {
+  const { data } = await http.get('/api/dashboard/low-attendance', { params })
+  return data
+}
+
+export async function getPeriodAnalysis(params) {
+  const { data } = await http.get('/api/dashboard/period-analysis', { params })
+  return data
+}
