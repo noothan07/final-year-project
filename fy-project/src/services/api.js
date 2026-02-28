@@ -35,6 +35,11 @@ export async function markAttendance(payload) {
   return data
 }
 
+export async function checkAttendanceExists(params) {
+  const { data } = await http.get('/api/attendance/exists', { params })
+  return data
+}
+
 // Convert frontend semester to backend format
 const SEMESTER_MAP = {
   '1st sem': '1st semester',

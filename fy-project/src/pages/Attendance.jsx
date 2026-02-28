@@ -1,58 +1,30 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 
-import { getStudents, markAttendance as markAttendanceAPI } from '../services/api'
+import { getStudents, markAttendance as markAttendanceAPI, getClassAttendance } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
 
-// Simple Dropdown Component - Reliable and bug-free
-function SimpleDropdown({ 
-  label, 
-  value, 
-  onChange, 
-  options, 
-  placeholder, 
-  disabled = false,
-  helperText = ''
-}) {
+// Simple Dropdown Component
+function SimpleDropdown({ label, value, onChange, options, placeholder, disabled = false, helperText = '' }) {
   return (
     <div className="relative">
-      <label className="block text-xs font-medium text-slate-700 mb-1">
-        {label}
-      </label>
+      <label className="block text-xs font-medium text-slate-700 mb-1">{label}</label>
       <select
-        value={value || ''}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`
-          w-full rounded-xl border px-3 py-2 text-sm transition-all
-          ${disabled 
-            ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
-            : 'border-blue-200 bg-white/80 hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white cursor-pointer'
-          }
-        `}
+        className={`w-full rounded-xl border px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white ${
+          disabled ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' : 'border-blue-200 bg-white/80 hover:border-blue-300'
+        }`}
       >
-        <option value="" disabled>
-          {placeholder}
-        </option>
-        {options.map((option, index) => {
-          const optionValue = typeof option === 'string' ? option : option.value
-          const optionLabel = typeof option === 'string' ? option : (option.label || option.value || option)
-          const isDisabled = typeof option === 'object' ? option.disabled : false
-          
-          return (
-            <option 
-              key={`${optionValue}-${index}`}
-              value={optionValue}
-              disabled={isDisabled}
-            >
-              {optionLabel}
-            </option>
-          )
-        })}
+        {placeholder && <option value="" disabled>{placeholder}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </option>
+        ))}
       </select>
-      {helperText && (
-        <p className="text-xs text-slate-500 mt-1">{helperText}</p>
-      )}
+      {helperText && <p className="text-xs text-slate-500 mt-1">{helperText}</p>}
     </div>
   )
 }
@@ -76,248 +48,57 @@ const DEPARTMENTS = [
   { value: 'architecture', label: 'Architecture', disabled: true }
 ]
 
-const SEMESTERS = ['1st semester', '3rd semester', '4th semester', '5th semester']
-const SHIFTS = ['1st shift', '2nd shift']
-const PERIODS = ['Period 1', 'Period 2', 'Period 3', 'Period 4', 'Period 5', 'Period 6', 'Period 7']
-
-// Advanced Dropdown Component
-function AdvancedDropdown({ 
-  label, 
-  value, 
-  onChange, 
-  options, 
-  placeholder, 
-  disabled = false,
-  helperText = '',
-  showTooltip = false 
-}) {
-  const { openDropdownId, setOpenDropdownId } = useDropdownContext()
-  const [searchTerm, setSearchTerm] = useState('')
-  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 })
-  const buttonRef = useRef(null) // Proper ref for the button
-  
-  // Generate unique ID for this dropdown
-  const dropdownId = `dropdown-${label.replace(/\s+/g, '-').toLowerCase()}`
-  const isOpen = openDropdownId === dropdownId
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isOpen && !event.target.closest('.dropdown-container')) {
-        setOpenDropdownId(null)
-        setSearchTerm('')
-      }
-    }
-
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, setOpenDropdownId])
-
-  // Close dropdown when pressing Escape key
-  useEffect(() => {
-    const handleEscape = (event) => {
-      if (event.key === 'Escape' && isOpen) {
-        setOpenDropdownId(null)
-        setSearchTerm('')
-      }
-    }
-
-    document.addEventListener('keydown', handleEscape)
-    return () => document.removeEventListener('keydown', handleEscape)
-  }, [isOpen, setOpenDropdownId])
-
-  // Update dropdown position when open
-  useEffect(() => {
-    if (isOpen && buttonRef.current) {
-      const updatePosition = () => {
-        const rect = buttonRef.current.getBoundingClientRect()
-        const scrollTop = window.pageYOffset || document.documentElement.scrollTop
-        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft
-        
-        // Calculate position relative to the document
-        const absoluteTop = rect.top + scrollTop
-        const absoluteLeft = rect.left + scrollLeft
-        
-        setDropdownPosition({
-          top: absoluteTop + rect.height + 8, // Below button with gap
-          left: absoluteLeft,
-          width: rect.width
-        })
-      }
-
-      updatePosition()
-      
-      // Update on resize and scroll
-      window.addEventListener('resize', updatePosition)
-      window.addEventListener('scroll', updatePosition, true) // Use capture for better scroll handling
-      
-      return () => {
-        window.removeEventListener('resize', updatePosition)
-        window.removeEventListener('scroll', updatePosition, true)
-      }
-    }
-  }, [isOpen])
-
-  const filteredOptions = options.filter(option => 
-    option.label?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    option.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  const selectedOption = options.find(opt => 
-    (opt.value || opt) === value
-  )
-
-  const handleSelect = (option, event) => {
-    event?.stopPropagation()
-    event?.preventDefault()
-    console.log('handleSelect called with:', option) // Debug log
-    if (!option.disabled) {
-      const newValue = option.value || option
-      console.log('Calling onChange with:', newValue) // Debug log
-      onChange(newValue)
-      setOpenDropdownId(null)
-      setSearchTerm('')
-    }
-  }
-
-  const toggleDropdown = () => {
-    if (!disabled) {
-      setOpenDropdownId(isOpen ? null : dropdownId)
-      if (isOpen) {
-        setSearchTerm('')
-      }
-    }
-  }
-
-  return (
-    // Main container with relative positioning for dropdown absolute positioning
-    <div className="relative dropdown-container">
-      <label className="block text-xs font-medium text-slate-700 mb-1">
-        {label}
-      </label>
-      {/* Button container - relative for dropdown positioning */}
-      <div className="relative">
-        <button
-          ref={buttonRef}
-          type="button"
-          onClick={toggleDropdown}
-          disabled={disabled}
-          className={`
-            w-full rounded-xl border px-3 py-2 text-sm text-left transition-all
-            flex items-center justify-between
-            ${disabled 
-              ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
-              : 'border-blue-200 bg-white/80 hover:border-blue-300 focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white cursor-pointer'
-            }
-          `}
-        >
-          <span className={selectedOption ? 'text-slate-900' : 'text-slate-500'}>
-            {selectedOption ? (selectedOption.label || selectedOption) : placeholder}
-          </span>
-          <svg 
-            className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`}
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {/* 
-          PORTAL-BASED DROPDOWN MENU
-          Renders dropdown menu outside Framer Motion's transform context
-          This ensures proper z-index stacking and prevents clipping
-        */}
-        {isOpen && !disabled && createPortal(
-          <div 
-            className="fixed z-50 bg-white border border-blue-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"
-            style={{
-              position: 'fixed',
-              top: `${dropdownPosition.top}px`,
-              left: `${dropdownPosition.left}px`,
-              width: `${dropdownPosition.width}px`,
-              zIndex: 9999
-            }}
-            onClick={(e) => e.stopPropagation()} // Prevent event bubbling
-          >
-            {options.length > 8 && (
-              <div className="p-2 border-b border-blue-100">
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </div>
-            )}
-            <div className="max-h-48 overflow-y-auto">
-              {filteredOptions.map((option, index) => {
-                const isSelected = (option.value || option) === value
-                const isDisabled = option.disabled || false
-                
-                return (
-                  <button
-                    key={index}
-                    type="button"
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      e.preventDefault()
-                      console.log('Button mouseDown for option:', option) // Debug log
-                      handleSelect(option, e)
-                    }}
-                    disabled={isDisabled}
-                    className={`
-                      w-full px-3 py-2 text-sm text-left transition-colors
-                      flex items-center justify-between
-                      ${isSelected 
-                        ? 'bg-primary-blue text-white' 
-                        : isDisabled
-                        ? 'bg-slate-50 text-slate-400 cursor-not-allowed'
-                        : 'text-slate-700 hover:bg-blue-50'
-                      }
-                    `}
-                  >
-                    <span>{option.label || option}</span>
-                    {isDisabled && (
-                      <span className="text-xs text-slate-400">Not available</span>
-                    )}
-                  </button>
-                )
-              })}
-            </div>
-          </div>,
-          document.body // Render portal to document.body to escape transform context
-        )}
-      </div>
-      {helperText && (
-        <p className="text-xs text-slate-500 mt-1">{helperText}</p>
-      )}
-    </div>
-  )
-}
+const SEMESTERS = [
+  { value: '1st semester', label: '1st Semester' },
+  { value: '2nd semester', label: '2nd Semester' },
+  { value: '3rd semester', label: '3rd Semester' },
+  { value: '4th semester', label: '4th Semester' },
+  { value: '5th semester', label: '5th Semester' },
+  { value: '6th semester', label: '6th Semester' }
+]
+const SHIFTS = [
+  { value: '1st shift', label: '1st Shift' },
+  { value: '2nd shift', label: '2nd Shift' }
+]
+const PERIODS = [
+  { value: 'Period 1', label: 'Period 1' },
+  { value: 'Period 2', label: 'Period 2' },
+  { value: 'Period 3', label: 'Period 3' },
+  { value: 'Period 4', label: 'Period 4' },
+  { value: 'Period 5', label: 'Period 5' },
+  { value: 'Period 6', label: 'Period 6' },
+  { value: 'Period 7', label: 'Period 7' }
+]
 
 export default function Attendance() {
   const { selection, setSelection } = useClassSelection()
-
+  const [toast, setToast] = useState({ message: '', type: '', visible: false })
+  const [modifyDialog, setModifyDialog] = useState({ show: false, existingData: null })
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [absentees, setAbsentees] = useState('')
   const [presents, setPresents] = useState('')
-  const [attendanceMode, setAttendanceMode] = useState('') // 'absentees' or 'presents'
-
+  const [attendanceMode, setAttendanceMode] = useState('')
   const [students, setStudents] = useState([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [loadingMark, setLoadingMark] = useState(false)
-  const [message, setMessage] = useState('')
-  const [error, setError] = useState('')
+  const [existingAttendance, setExistingAttendance] = useState(null)
+
+  const showSuccess = (message) => {
+    setToast({ message, type: 'success', visible: true })
+    setTimeout(() => setToast({ ...toast, visible: false }), 3000)
+  }
+
+  const showError = (message) => {
+    setToast({ message, type: 'error', visible: true })
+    setTimeout(() => setToast({ ...toast, visible: false }), 3000)
+  }
 
   // Dynamic subject options based on selected semester
   const subjectOptions = useMemo(() => {
     if (!selection.year || selection.department !== 'cme') return []
-    return SUBJECTS_BY_SEMESTER[selection.year] || []
+    const subjects = SUBJECTS_BY_SEMESTER[selection.year] || []
+    return subjects.map(subject => ({ value: subject, label: subject }))
   }, [selection.year, selection.department])
 
   // Check if class is ready
@@ -327,8 +108,77 @@ export default function Attendance() {
 
   // Check if attendance can be marked
   const canMark = useMemo(() => {
-    return classReady && date && (attendanceMode && (absentees.trim() || presents.trim()))
+    const result = classReady && date && (attendanceMode && (absentees.trim() || presents.trim()))
+    console.log('🔍 canMark calculation:', {
+      classReady,
+      date,
+      attendanceMode,
+      absentees: absentees.trim(),
+      presents: presents.trim(),
+      result
+    })
+    return result
   }, [classReady, date, absentees, presents, attendanceMode])
+
+  // Check if modify button should be shown - only when attendance exists for this period
+  const canModify = useMemo(() => {
+    const result = classReady && date && selectedPeriod && existingAttendance
+    console.log('🔍 canModify calculation:', {
+      classReady,
+      date,
+      selectedPeriod,
+      existingAttendance,
+      result
+    })
+    return result
+  }, [classReady, date, selectedPeriod, existingAttendance])
+
+  // Check for existing attendance when period or date changes
+  useEffect(() => {
+    const checkAttendance = async () => {
+      console.log('🔍 useEffect triggered - checking attendance for:', {
+        classReady,
+        date,
+        selectedPeriod,
+        department: selection.department,
+        semester: selection.year,
+        shift: selection.section,
+        subject: selection.subject
+      })
+      
+      if (classReady && date && selectedPeriod) {
+        try {
+          // Create params for period-only check (exclude subject)
+          const params = {
+            department: selection.department,
+            semester: selection.year,
+            shift: selection.section,
+            date,
+            period: selectedPeriod
+          }
+          
+          console.log('🔍 API call params (PERIOD-ONLY CHECK):', params)
+          const response = await getClassAttendance(params)
+          const attendanceRecords = response.attendance || response.data || []
+          console.log('🔍 All attendance records for period check:', attendanceRecords)
+          
+          // Find ANY record for this period (regardless of subject)
+          const existingRecord = attendanceRecords.find(record => {
+            console.log('🔍 Checking record:', record, 'against period:', selectedPeriod)
+            return record.period === selectedPeriod
+          })
+          console.log('🔍 Found ANY record for period', selectedPeriod, '(any subject):', existingRecord)
+          
+          setExistingAttendance(existingRecord)
+        } catch (err) {
+          console.error('❌ Error checking existing attendance:', err)
+          setExistingAttendance(null)
+        }
+      }
+    }
+
+    checkAttendance()
+  }, [classReady, date, selectedPeriod, selection.department, selection.year, selection.section, selection.subject])
 
   // Handle department change - reset dependent fields
   const handleDepartmentChange = (value) => {
@@ -356,20 +206,63 @@ export default function Attendance() {
       ...selection, 
       subject: value
     })
+    // Clear attendance fields when subject changes
+    setAbsentees('')
+    setPresents('')
+    setAttendanceMode('')
+  }
+
+  // Handle date change with validation
+  const handleDateChange = (value) => {
+    const selectedDate = new Date(value)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Set to start of day for accurate comparison
+    selectedDate.setHours(0, 0, 0, 0)
+    
+    if (selectedDate > today) {
+      showError('Cannot select future dates for attendance')
+      return
+    }
+    setDate(value)
   }
 
   // Handle absentees change
   const handleAbsenteesChange = (value) => {
+    console.log('🔍 Absentees input changed! Raw value:', JSON.stringify(value))
+    console.log('🔍 Absentees input changed! Trimmed value:', JSON.stringify(value.trim()))
     setAbsentees(value)
-    setAttendanceMode('absentees')
-    setPresents('') // Clear presents when entering absentees
+    if (value.trim()) {
+      setAttendanceMode('absentees')
+      setPresents('') // Clear presents when entering absentees
+      console.log('🔍 Set attendanceMode to absentees')
+    } else {
+      setAttendanceMode('')
+      console.log('🔍 Set attendanceMode to empty')
+    }
   }
 
   // Handle presents change
   const handlePresentsChange = (value) => {
+    console.log('🔍 Presents input changed! Raw value:', JSON.stringify(value))
+    console.log('🔍 Presents input changed! Trimmed value:', JSON.stringify(value.trim()))
     setPresents(value)
-    setAttendanceMode('presents')
-    setAbsentees('') // Clear absentees when entering presents
+    if (value.trim()) {
+      setAttendanceMode('presents')
+      setAbsentees('') // Clear absentees when entering presents
+      console.log('🔍 Set attendanceMode to presents')
+    } else {
+      setAttendanceMode('')
+      console.log('🔍 Set attendanceMode to empty')
+    }
+  }
+
+  // Handle period change
+  const handlePeriodChange = (value) => {
+    setSelectedPeriod(value)
+    // Clear attendance fields when period changes
+    setAbsentees('')
+    setPresents('')
+    setAttendanceMode('')
   }
 
   // Handle shift change
@@ -383,7 +276,9 @@ export default function Attendance() {
   async function loadStudents() {
     if (!classReady) return
     setLoadingStudents(true)
-    setError('')
+    
+    // Clear any existing success/error messages when loading students for new period
+    clearAttendanceFields()
     
     // Debug: Log the selection object
     console.log('🔍 Loading students with selection:', selection)
@@ -405,19 +300,49 @@ export default function Attendance() {
       
       // Show "No data found" if no students match
       if (!data || data.length === 0) {
-        setError('No students found matching the selected criteria')
+        showError('No students found matching the selected criteria')
+      }
+      
+      // After loading students, check for existing attendance
+      if (classReady && date && selectedPeriod) {
+        console.log('🔍 Checking existing attendance after loading students (PERIOD-ONLY)')
+        try {
+          // Create params for period-only check (exclude subject)
+          const attendanceParams = {
+            department: selection.department,
+            semester: selection.year,
+            shift: selection.section,
+            date,
+            period: selectedPeriod
+          }
+          
+          console.log('🔍 Attendance check params (PERIOD-ONLY):', attendanceParams)
+          const response = await getClassAttendance(attendanceParams)
+          const attendanceRecords = response.attendance || response.data || []
+          console.log('🔍 Attendance records found after loading students (PERIOD-ONLY):', attendanceRecords)
+          
+          // Find ANY record for this period (regardless of subject)
+          const existingRecord = attendanceRecords.find(record => {
+            console.log('🔍 Checking record after load:', record, 'against period:', selectedPeriod)
+            return record.period === selectedPeriod
+          })
+          console.log('🔍 Setting existingAttendance after loading students (PERIOD-ONLY):', existingRecord)
+          setExistingAttendance(existingRecord)
+        } catch (err) {
+          console.error('❌ Error checking existing attendance after loading students:', err)
+          setExistingAttendance(null)
+        }
       }
     } catch (err) {
       console.error('❌ Error loading students:', err)
-      setError(err?.response?.data?.message || 'Failed to load students')
+      showError(err?.response?.data?.message || 'Failed to load students')
     } finally {
       setLoadingStudents(false)
     }
   }
 
-  // Clear error when dropdown values change
+  // Clear students when dropdown values change
   useEffect(() => {
-    setError('')
     setStudents([])
   }, [selection.department, selection.year, selection.section, selection.subject, selectedPeriod])
 
@@ -434,26 +359,127 @@ export default function Attendance() {
   //   loadStudents()
   // }, [selection, selectedPeriod])
 
-  async function markAttendance() {
-    if (!canMark) return
-    setLoadingMark(true)
-    setError('')
-    setMessage('')
-    
-    console.log('🔍 Marking attendance with:', {
-      selection,
-      date,
-      attendanceMode,
-      absentees,
-      presents,
-      selectedPeriod,
-      canMark
-    })
+  // Clear attendance fields
+  const clearAttendanceFields = () => {
+    setAbsentees('')
+    setPresents('')
+    setAttendanceMode('')
+  }
+
+  const openModifyDialog = async () => {
+    const existingData = await checkExistingAttendance()
+    if (existingData) {
+      setModifyDialog({ show: true, existingData })
+    }
+  }
+
+  const handleModify = async () => {
+    try {
+      const pinList = (modifyDialog.existingData.absentees || modifyDialog.existingData.presents).split(',').map(pin => pin.trim())
+      const fullPinList = pinList.map(shortPin => {
+        const student = students.find(s => s.shortPin === shortPin || s.pin === shortPin.trim())
+        return student ? student.pin : shortPin
+      })
+      
+      const attendanceData = {
+        department: selection.department,
+        semester: selection.year,
+        shift: selection.section,
+        subject: modifyDialog.existingData.subject,
+        date,
+        absentees: modifyDialog.existingData.absentees || '',
+        presents: modifyDialog.existingData.presents || '',
+        period: selectedPeriod
+      }
+      
+      await markAttendanceAPI(attendanceData)
+      showSuccess('Attendance modified successfully!')
+      setModifyDialog({ show: false, existingData: null })
+      setAbsentees('')
+      setPresents('')
+      setAttendanceMode('')
+    } catch (err) {
+      showError(err?.response?.data?.message || 'Failed to modify attendance')
+    } finally {
+      setLoadingMark(false)
+    }
+  }
+
+  async function checkExistingAttendance() {
+    if (!classReady || !date || !selectedPeriod) return false
     
     try {
-      // Convert short PINs to full PINs for backend
+      const params = {
+        department: selection.department,
+        semester: selection.year,
+        shift: selection.section,
+        date,
+        period: selectedPeriod
+      }
+      
+      const response = await getClassAttendance(params)
+      const attendanceRecords = response.attendance || response.data || []
+      
+      // Check if any attendance exists for this period on this day
+      const existingRecord = attendanceRecords.find(record => record.period === selectedPeriod)
+      
+      if (existingRecord) {
+        console.log('🔍 Found existing attendance:', existingRecord)
+        return existingRecord
+      }
+      
+      return false
+    } catch (err) {
+      console.error('❌ Error checking existing attendance:', err)
+      return false
+    }
+  }
+
+  async function markAttendance() {
+    console.log('🔍 markAttendance called! Current state:', {
+      canMark,
+      existingAttendance,
+      selectedPeriod,
+      subject: selection.subject
+    })
+    
+    if (!canMark) {
+      console.log('🔍 markAttendance blocked - canMark is false')
+      return
+    }
+    setLoadingMark(true)
+    
+    console.log('🔍 Mark Attendance button clicked')
+    
+    try {
+      // Check if attendance already exists for this period
+      const existingData = await checkExistingAttendance()
+      console.log('🔍 Existing attendance data from checkExistingAttendance:', existingData)
+      
+      if (existingData) {
+        console.log('🔍 Attendance exists - showing toast and blocking override')
+        // Show toast message - don't allow override
+        showError('Attendance already marked for this period. Use "Modify Attendance" button to make changes.')
+        setLoadingMark(false)
+        return
+      }
+      
+      console.log('🔍 No existing attendance - proceeding to mark new attendance')
+      
+      // No existing attendance - proceed normally
       const pinList = (absentees.trim() || presents.trim()).split(',').map(pin => pin.trim())
       console.log('🔍 Short PINs:', pinList)
+      
+      // Validate PINs - only show error when clicking Mark Attendance button
+      const invalidPINs = pinList.filter(shortPin => {
+        const student = students.find(s => s.shortPin === shortPin)
+        return !student
+      })
+      
+      if (invalidPINs.length > 0) {
+        showError(`Invalid PINs: ${invalidPINs.join(', ')}`)
+        return
+      }
       
       const fullPinList = pinList.map(shortPin => {
         // Find student with this short PIN and get their full PIN
@@ -477,13 +503,13 @@ export default function Attendance() {
       
       // Call the API function, not the local function
       const response = await markAttendanceAPI(attendanceData)
-      setMessage('Attendance marked successfully!')
+      showSuccess('Attendance marked successfully!')
       setAbsentees('')
       setPresents('')
       setAttendanceMode('')
     } catch (err) {
       console.error('❌ Attendance marking error:', err)
-      setError(err?.response?.data?.message || 'Failed to mark attendance')
+      showError(err?.response?.data?.message || 'Failed to mark attendance')
     } finally {
       setLoadingMark(false)
     }
@@ -545,7 +571,7 @@ export default function Attendance() {
           <SimpleDropdown
             label="Period Taught"
             value={selectedPeriod}
-            onChange={setSelectedPeriod}
+            onChange={handlePeriodChange}
             options={PERIODS}
             placeholder="Select Period"
             helperText="Select the period you are teaching"
@@ -558,7 +584,8 @@ export default function Attendance() {
             <input
               type="date"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
+              onChange={(e) => handleDateChange(e.target.value)}
+              max={new Date().toISOString().split('T')[0]}
               className="w-full rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
             />
             <p className="text-xs text-slate-500 mt-1">Select attendance date</p>
@@ -572,12 +599,6 @@ export default function Attendance() {
         >
           {loadingStudents ? 'Loading...' : 'Load Students'}
         </button>
-
-        {error && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-            {error}
-          </div>
-        )}
       </div>
 
       {/* Attendance */}
@@ -600,7 +621,7 @@ export default function Attendance() {
                   ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
                   : 'border-blue-200 hover:border-blue-300'
               }`}
-              placeholder={attendanceMode === 'presents' ? 'Disabled when marking presents' : 'e.g., 001, 002, 003'}
+              placeholder="e.g., 001, 002, 003"
             />
             {attendanceMode === 'presents' && (
               <p className="text-xs text-slate-500 mt-1">Clear presents field to mark absentees</p>
@@ -618,7 +639,7 @@ export default function Attendance() {
                   ? 'border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed' 
                   : 'border-blue-200 hover:border-blue-300'
               }`}
-              placeholder={attendanceMode === 'absentees' ? 'Disabled when marking absentees' : 'e.g., 001, 002, 003'}
+              placeholder="e.g., 001, 002, 003"
             />
             {attendanceMode === 'absentees' && (
               <p className="text-xs text-slate-500 mt-1">Clear absentees field to mark presents</p>
@@ -636,17 +657,22 @@ export default function Attendance() {
             {loadingMark ? 'Marking…' : 'Mark Attendance'}
           </motion.button>
 
-          {message && (
-            <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-600">
-              {message}
-            </div>
-          )}
+          <motion.button
+            whileTap={{ scale: 0.99 }}
+            disabled={!existingAttendance}
+            onClick={openModifyDialog}
+            className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
+          >
+            Modify Attendance
+          </motion.button>
 
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
-              {error}
-            </div>
-          )}
+          <motion.button
+            whileTap={{ scale: 0.99 }}
+            onClick={clearAttendanceFields}
+            className="rounded-xl border border-slate-300 bg-gray-200 px-4 py-2 text-sm font-medium text-slate-700  transition-all hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-200"
+          >
+            Clear Input
+          </motion.button>
         </div>
       </div>
 
@@ -692,6 +718,140 @@ export default function Attendance() {
           </table>
         </div>
       </div>
+
+      {/* Modify Attendance Dialog */}
+      {modifyDialog.show && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="bg-white rounded-xl p-6 max-w-2xl mx-4 shadow-xl max-h-[80vh] overflow-y-auto"
+          >
+            <div className="text-center">
+              <div className="mb-4">
+                <svg className="w-12 h-12 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2H5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-11a2 2 0 00-2-2zM11 13a1 1 0 011-1H6a1 1 0 01-1 1v3a1 1 0 011 1h5a1 1 0 011-1v-3a1 1 0 01-1-1z" />
+                </svg>
+              </div>
+              
+              <h3 className="text-lg font-semibold text-slate-900 mb-4">Modify Attendance</h3>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Current Subject</label>
+                    <input
+                      type="text"
+                      value={modifyDialog.existingData?.subject || ''}
+                      disabled
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Period</label>
+                    <input
+                      type="text"
+                      value={selectedPeriod}
+                      disabled
+                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Current Absentees</label>
+                  <textarea
+                    value={modifyDialog.existingData?.absentees || ''}
+                    onChange={(e) => setModifyDialog({ 
+                      ...modifyDialog, 
+                      existingData: { ...modifyDialog.existingData, absentees: e.target.value }
+                    })}
+                    rows={3}
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Enter absentees PINs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Current Presents</label>
+                  <textarea
+                    value={modifyDialog.existingData?.presents || ''}
+                    onChange={(e) => setModifyDialog({ 
+                      ...modifyDialog, 
+                      existingData: { ...modifyDialog.existingData, presents: e.target.value }
+                    })}
+                    rows={3}
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Enter presents PINs"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Reason for Change (Optional)</label>
+                  <textarea
+                    value={modifyDialog.existingData?.reason || ''}
+                    onChange={(e) => setModifyDialog({ 
+                      ...modifyDialog, 
+                      existingData: { ...modifyDialog.existingData, reason: e.target.value }
+                    })}
+                    rows={2}
+                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
+                    placeholder="Explain why you're modifying this attendance"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex gap-3 justify-center mt-6">
+                <button
+                  onClick={() => setModifyDialog({ show: false, existingData: null })}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleModify}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Local Toast Component */}
+      {toast.visible && (
+        <motion.div
+          initial={{ opacity: 0, y: 50, scale: 0.95 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 50, scale: 0.95 }}
+          className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${
+            toast.type === 'success' 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            {toast.type === 'success' ? (
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            )}
+            <span className="text-sm font-medium">{toast.message}</span>
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   )
 }
