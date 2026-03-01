@@ -8,7 +8,7 @@ export async function markAttendance(req, res) {
   try {
     console.log('🔍 Mark attendance request:', req.body)
     
-    const { department, semester, shift, subject, date, period, absentees, presents } = req.body
+    const { department, semester, shift, subject, date, period, absentees, presents, isModification = false } = req.body
 
     // Validate required fields
     if (!department || !semester || !shift || !subject || !date || !period) {
@@ -41,6 +41,24 @@ export async function markAttendance(req, res) {
       return res.status(400).json({ message: 'Invalid date. Use YYYY-MM-DD.' })
     }
 
+    // Only check for existing attendance if this is NOT a modification
+    if (!isModification) {
+      // Check if attendance already exists for this period (PERIOD-ONLY - ignore subject)
+      const existingAttendance = await PeriodAttendance.findOne({
+        department,
+        semester,
+        shift,
+        period: periodNumber, // Use the converted number
+        date: dateObj
+        // NO subject parameter - check for ANY attendance in this period
+      })
+
+      if (existingAttendance) {
+        console.log('❌ Attendance already exists for this period (PERIOD-ONLY check)')
+        return res.status(400).json({ message: 'Attendance already marked for this period' })
+      }
+    }
+
     // Get all students for this class
     const students = await Student.find({
       department: new RegExp(`^${department}$`, 'i'), // Case-insensitive
@@ -69,21 +87,6 @@ export async function markAttendance(req, res) {
       })
     }
 
-    // Check if attendance already exists for this period
-    const existingAttendance = await PeriodAttendance.findOne({
-      department,
-      semester,
-      shift,
-      subject,
-      period: periodNumber, // Use the converted number
-      date: dateObj
-    })
-
-    if (existingAttendance) {
-      console.log('❌ Attendance already exists for this period')
-      return res.status(400).json({ message: 'Attendance already marked for this period' })
-    }
-
     // Determine absentees and presents arrays
     let absenteesArray = []
     let presentsArray = []
@@ -101,29 +104,56 @@ export async function markAttendance(req, res) {
       presents: presentsArray
     })
 
-    // Create attendance record
-    const attendance = new PeriodAttendance({
-      department,
-      semester,
-      shift,
-      subject,
-      period: periodNumber, // Use the converted number
-      date: dateObj,
-      absentees: absenteesArray,
-      presents: presentsArray,
-      markedBy: null // Set to null to avoid ObjectId validation issues
-    })
+    let attendance;
 
-    await attendance.save()
-    console.log('✅ Attendance saved successfully')
+    if (isModification) {
+      // Find and update existing attendance record
+      attendance = await PeriodAttendance.findOne({
+        department,
+        semester,
+        shift,
+        period: periodNumber,
+        date: dateObj
+      })
 
-    res.status(201).json({
-      message: 'Attendance marked successfully',
+      if (!attendance) {
+        console.log('❌ No existing attendance found for modification')
+        return res.status(404).json({ message: 'No existing attendance found for this period' })
+      }
+
+      // Update the existing record
+      attendance.subject = subject
+      attendance.absentees = absenteesArray
+      attendance.presents = presentsArray
+      attendance.markedBy = null
+
+      await attendance.save()
+      console.log('✅ Attendance updated successfully')
+    } else {
+      // Create new attendance record
+      attendance = new PeriodAttendance({
+        department,
+        semester,
+        shift,
+        subject,
+        period: periodNumber,
+        date: dateObj,
+        absentees: absenteesArray,
+        presents: presentsArray,
+        markedBy: null
+      })
+
+      await attendance.save()
+      console.log('✅ Attendance saved successfully')
+    }
+
+    res.status(isModification ? 200 : 201).json({
+      message: isModification ? 'Attendance modified successfully' : 'Attendance marked successfully',
       attendance: {
         totalStudents: students.length,
         absentees: absenteesArray.length,
         presents: presentsArray.length,
-        period: periodNumber, // Show the number
+        period: periodNumber,
         date,
         subject
       }
@@ -206,49 +236,69 @@ export async function getClassAttendance(req, res) {
       return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD.' })
     }
 
-    console.log('🔍 Get class attendance:', { department, semester, shift, date });
+    console.log('🔍 Get class Attendance:', { department, semester, shift, date });
 
-    // Find attendance for the specific date
-    const attendance = await PeriodAttendance.findOne({
+    // Get all attendance for this class on this date (PERIOD-ONLY - no subject filter)
+    const attendances = await PeriodAttendance.find({
       department: new RegExp(`^${department}$`, 'i'),
       semester,
       shift,
       date: dateObj
+      // NO subject parameter - this will return ALL attendance for all periods on this date
     })
 
-    if (!attendance) {
-      return res.status(404).json({ message: 'No attendance found for this class on the specified date' })
+    console.log(`🔍 Found ${attendances.length} attendance records for period-only check:`, attendances);
+
+    res.json({ message: 'Class attendance retrieved successfully', attendance: attendances });
+  } catch (error) {
+    console.error('❌ Get class Attendance error:', error);
+    res.status(500).json({ 
+      message: 'Failed to get class Attendance: ' + (error.message || 'Unknown error'),
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
+  }
+}
+
+export async function checkPeriodAttendanceOnly(req, res) {
+  try {
+    const { department, semester, shift, date, period } = req.query
+
+    if (!department || !semester || !shift || !date || !period) {
+      return res.status(400).json({ message: 'Department, semester, shift, date, and period are required' })
     }
 
-    // Get all students for this class
-    const students = await Student.find({
+    const dateObj = parseISODateOnly(date)
+    if (!dateObj) {
+      return res.status(400).json({ message: 'Invalid date format. Use YYYY-MM-DD.' })
+    }
+
+    console.log('🔍 Check Period-Only Attendance:', { department, semester, shift, date, period });
+
+    // Get all attendance for this class on this date, then filter by period in frontend
+    const attendances = await PeriodAttendance.find({
       department: new RegExp(`^${department}$`, 'i'),
       semester,
       shift,
-      status: 'active'
+      date: dateObj
+      // NO subject parameter - get ALL attendance for this date
     })
 
-    console.log(`🔍 Found ${students.length} students for class attendance`);
+    console.log(`🔍 Found ${attendances.length} attendance records for period-only check:`, attendances);
 
-    // Prepare attendance data with student names
-    const attendanceData = {
-      date: date,
-      department,
-      semester,
-      shift,
-      period: attendance.period,
-      subject: attendance.subject,
-      totalStudents: students.length,
-      absentees: attendance.absentees || [],
-      presents: attendance.presents || [],
-      markedAt: attendance.createdAt
-    }
+    // Find attendance for the specific period (regardless of subject)
+    const existingAttendance = attendances.find(att => att.period === period);
 
-    res.json({ message: 'Class attendance retrieved successfully', attendance: attendanceData })
+    console.log('🔍 Period-only check result:', existingAttendance ? 'Found existing attendance' : 'No existing attendance');
+
+    res.json({ 
+      message: 'Period-only attendance check completed', 
+      existingAttendance: existingAttendance || null,
+      allAttendance: attendances 
+    });
   } catch (error) {
-    console.error('❌ Get class attendance error:', error);
+    console.error('❌ Check Period-Only Attendance error:', error);
     res.status(500).json({ 
-      message: 'Failed to get class attendance: ' + (error.message || 'Unknown error'),
+      message: 'Failed to check period-only attendance: ' + (error.message || 'Unknown error'),
       details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
@@ -572,5 +622,139 @@ export async function exportStudentAttendance(req, res) {
   } catch (error) {
     console.error('Error exporting student attendance:', error)
     res.status(500).json({ error: 'Internal server error' })
+  }
+}
+
+export async function modifyAttendance(req, res) {
+  try {
+    console.log('🔍 Modify attendance request:', req.body)
+    
+    const { department, semester, shift, subject, date, period, absentees, presents } = req.body
+
+    // Validate required fields
+    if (!department || !semester || !shift || !subject || !date || !period) {
+      console.log('❌ Missing required fields:', { department, semester, shift, subject, date, period })
+      return res.status(400).json({ message: 'All fields are required: department, semester, shift, subject, date, period' })
+    }
+
+    // Validate period range
+    const periodNumber = parseInt(period.replace('Period ', '').trim())
+    if (isNaN(periodNumber) || periodNumber < 1 || periodNumber > 7) {
+      console.log('❌ Invalid period format:', period)
+      return res.status(400).json({ message: 'Invalid period. Use Period 1-7.' })
+    }
+
+    // Validate that either absentees or presents is provided (not both)
+    if (absentees && presents) {
+      console.log('❌ Both absentees and presents provided')
+      return res.status(400).json({ message: 'Provide either absentees or presents, not both' })
+    }
+
+    if (!absentees && !presents) {
+      console.log('❌ Neither absentees nor presents provided')
+      return res.status(400).json({ message: 'Provide either absentees or presents' })
+    }
+
+    const dateObj = parseISODateOnly(date)
+    if (!dateObj) {
+      console.log('❌ Invalid date format:', date)
+      return res.status(400).json({ message: 'Invalid date. Use YYYY-MM-DD.' })
+    }
+
+    // Find existing attendance for this period (PERIOD-ONLY)
+    const existingAttendance = await PeriodAttendance.findOne({
+      department,
+      semester,
+      shift,
+      period: periodNumber,
+      date: dateObj
+      // NO subject parameter - find ANY attendance in this period
+    })
+
+    if (!existingAttendance) {
+      console.log('❌ No existing attendance found for this period')
+      return res.status(404).json({ message: 'No existing attendance found for this period' })
+    }
+
+    // Get all students for this class
+    const students = await Student.find({
+      department: new RegExp(`^${department}$`, 'i'),
+      semester,
+      shift,
+      status: 'active'
+    })
+    console.log(`🔍 Found ${students.length} students for class`)
+
+    const studentPins = students.map(s => s.pin)
+    const pinList = absentees || presents
+
+    // Validate PINs
+    const pins = pinList.split(',').map(pin => pin.trim()).filter(pin => pin)
+    console.log('🔍 Processing PINs:', pins)
+
+    const invalidPins = pins.filter(pin => !studentPins.includes(pin))
+    if (invalidPins.length > 0) {
+      console.log('❌ Invalid PINs:', invalidPins)
+      return res.status(400).json({ 
+        message: `Invalid PINs: ${invalidPins.join(', ')}. These students are not in the selected class.` 
+      })
+    }
+
+    // Determine absentees and presents arrays
+    let absenteesArray = []
+    let presentsArray = []
+
+    if (absentees) {
+      absenteesArray = pins
+      presentsArray = studentPins.filter(pin => !absenteesArray.includes(pin))
+    } else {
+      presentsArray = pins
+      absenteesArray = studentPins.filter(pin => !presentsArray.includes(pin))
+    }
+
+    console.log('🔍 Updated attendance data:', {
+      absentees: absenteesArray,
+      presents: presentsArray
+    })
+
+    // Update the existing attendance record
+    existingAttendance.subject = subject
+    existingAttendance.absentees = absenteesArray
+    existingAttendance.presents = presentsArray
+    existingAttendance.markedBy = null
+
+    await existingAttendance.save()
+    console.log('✅ Attendance updated successfully')
+
+    res.status(200).json({
+      message: 'Attendance modified successfully',
+      attendance: {
+        totalStudents: students.length,
+        absentees: absenteesArray.length,
+        presents: presentsArray.length,
+        period: periodNumber,
+        date,
+        subject
+      }
+    })
+  } catch (error) {
+    console.error('❌ Modify attendance error:', error);
+    const errorMessage = error.message || 'Unknown error occurred';
+    const errorDetails = {
+      message: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    };
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        message: 'Validation error: ' + errorMessage,
+        details: errorDetails
+      });
+    }
+    
+    res.status(500).json({
+      message: 'Server error: ' + errorMessage,
+      details: errorDetails
+    });
   }
 }

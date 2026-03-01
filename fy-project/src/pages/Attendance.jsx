@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { useEffect, useMemo, useState } from 'react'
 
-import { getStudents, markAttendance as markAttendanceAPI, getClassAttendance } from '../services/api'
+import { getStudents, markAttendance as markAttendanceAPI, getClassAttendance, checkPeriodAttendanceOnly, modifyAttendance as modifyAttendanceAPI } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
 
 // Simple Dropdown Component
@@ -153,20 +153,13 @@ export default function Attendance() {
             department: selection.department,
             semester: selection.year,
             shift: selection.section,
+            subject: selection.subject,
             date,
             period: selectedPeriod
           }
           
-          console.log('🔍 API call params (PERIOD-ONLY CHECK):', params)
-          const response = await getClassAttendance(params)
-          const attendanceRecords = response.attendance || response.data || []
-          console.log('🔍 All attendance records for period check:', attendanceRecords)
-          
-          // Find ANY record for this period (regardless of subject)
-          const existingRecord = attendanceRecords.find(record => {
-            console.log('🔍 Checking record:', record, 'against period:', selectedPeriod)
-            return record.period === selectedPeriod
-          })
+          console.log('🔍 Using checkPeriodAttendanceOnly API (EXPLICIT PERIOD-ONLY):', params)
+          const existingRecord = await checkPeriodAttendanceOnly(params)
           console.log('🔍 Found ANY record for period', selectedPeriod, '(any subject):', existingRecord)
           
           setExistingAttendance(existingRecord)
@@ -305,7 +298,7 @@ export default function Attendance() {
       
       // After loading students, check for existing attendance
       if (classReady && date && selectedPeriod) {
-        console.log('🔍 Checking existing attendance after loading students (PERIOD-ONLY)')
+        console.log('🔍 Checking existing attendance after loading students (EXPLICIT PERIOD-ONLY)')
         try {
           // Create params for period-only check (exclude subject)
           const attendanceParams = {
@@ -316,17 +309,9 @@ export default function Attendance() {
             period: selectedPeriod
           }
           
-          console.log('🔍 Attendance check params (PERIOD-ONLY):', attendanceParams)
-          const response = await getClassAttendance(attendanceParams)
-          const attendanceRecords = response.attendance || response.data || []
-          console.log('🔍 Attendance records found after loading students (PERIOD-ONLY):', attendanceRecords)
-          
-          // Find ANY record for this period (regardless of subject)
-          const existingRecord = attendanceRecords.find(record => {
-            console.log('🔍 Checking record after load:', record, 'against period:', selectedPeriod)
-            return record.period === selectedPeriod
-          })
-          console.log('🔍 Setting existingAttendance after loading students (PERIOD-ONLY):', existingRecord)
+          console.log('🔍 Using checkPeriodAttendanceOnly after loading students (EXPLICIT PERIOD-ONLY):', attendanceParams)
+          const existingRecord = await checkPeriodAttendanceOnly(attendanceParams)
+          console.log('🔍 Setting existingAttendance after loading students (EXPLICIT PERIOD-ONLY):', existingRecord)
           setExistingAttendance(existingRecord)
         } catch (err) {
           console.error('❌ Error checking existing attendance after loading students:', err)
@@ -367,38 +352,83 @@ export default function Attendance() {
   }
 
   const openModifyDialog = async () => {
-    const existingData = await checkExistingAttendance()
-    if (existingData) {
-      setModifyDialog({ show: true, existingData })
+    if (!canModify) {
+      console.log('❌ Cannot open dialog - canModify is false')
+      return
+    }
+    
+    console.log('🔍 Opening modify dialog with existingAttendance state:', existingAttendance)
+    
+    // Use existingAttendance state directly instead of calling API again
+    if (existingAttendance) {
+      // Convert full PINs to short PINs for display
+      const getShortPins = (pinString) => {
+        if (!pinString) return ''
+        return pinString.split(',').map(pin => {
+          const trimmedPin = pin.trim()
+          return trimmedPin.slice(-3).padStart(3, '0') // Take last 3 digits, pad with zeros
+        }).join(', ')
+      }
+      
+      const existingDataWithShortPins = {
+        ...existingAttendance,
+        absentees: getShortPins(existingAttendance.absentees),
+        presents: getShortPins(existingAttendance.presents)
+      }
+      setModifyDialog({ show: true, existingData: existingDataWithShortPins })
+    } else {
+      console.log('❌ No existing data found, cannot open dialog')
     }
   }
 
   const handleModify = async () => {
     try {
-      const pinList = (modifyDialog.existingData.absentees || modifyDialog.existingData.presents).split(',').map(pin => pin.trim())
-      const fullPinList = pinList.map(shortPin => {
-        const student = students.find(s => s.shortPin === shortPin || s.pin === shortPin.trim())
-        return student ? student.pin : shortPin
-      })
+      console.log('🔍 handleModify called with modifyDialog:', modifyDialog)
+      console.log('🔍 existingData:', modifyDialog.existingData)
+      console.log('🔍 students available:', students.length)
+      
+      // Convert short PINs back to full PINs by matching with students
+      const convertShortToFullPins = (shortPinString) => {
+        if (!shortPinString) return ''
+        
+        const shortPins = shortPinString.split(',').map(pin => pin.trim()).filter(pin => pin)
+        console.log('🔍 Converting short PINs:', shortPins)
+        
+        const fullPins = shortPins.map(shortPin => {
+          // Find student with matching short PIN
+          const student = students.find(s => s.shortPin === shortPin || s.pin?.slice(-3) === shortPin)
+          console.log(`🔍 Short PIN ${shortPin} -> Student:`, student ? student.pin : 'NOT FOUND')
+          return student ? student.pin : shortPin // fallback to short PIN if not found
+        })
+        
+        return fullPins.join(', ')
+      }
       
       const attendanceData = {
         department: selection.department,
         semester: selection.year,
         shift: selection.section,
-        subject: modifyDialog.existingData.subject,
+        subject: modifyDialog.existingData?.subject || selection.subject,
         date,
-        absentees: modifyDialog.existingData.absentees || '',
-        presents: modifyDialog.existingData.presents || '',
+        absentees: convertShortToFullPins(modifyDialog.existingData?.absentees || ''),
+        presents: convertShortToFullPins(modifyDialog.existingData?.presents || ''),
         period: selectedPeriod
       }
       
-      await markAttendanceAPI(attendanceData)
+      console.log('🔍 Final attendanceData to send:', attendanceData)
+      console.log('🔍 Absentees converted:', convertShortToFullPins(modifyDialog.existingData?.absentees || ''))
+      console.log('🔍 Presents converted:', convertShortToFullPins(modifyDialog.existingData?.presents || ''))
+      
+      await modifyAttendanceAPI(attendanceData)
       showSuccess('Attendance modified successfully!')
       setModifyDialog({ show: false, existingData: null })
       setAbsentees('')
       setPresents('')
       setAttendanceMode('')
+      // Clear existingAttendance state after successful modification
+      setExistingAttendance(null)
     } catch (err) {
+      console.error('❌ Modify error:', err)
       showError(err?.response?.data?.message || 'Failed to modify attendance')
     } finally {
       setLoadingMark(false)
@@ -406,7 +436,7 @@ export default function Attendance() {
   }
 
   async function checkExistingAttendance() {
-    if (!classReady || !date || !selectedPeriod) return false
+    if (!classReady || !date || !selectedPeriod) return null
     
     try {
       const params = {
@@ -417,21 +447,23 @@ export default function Attendance() {
         period: selectedPeriod
       }
       
-      const response = await getClassAttendance(params)
-      const attendanceRecords = response.attendance || response.data || []
+      console.log('🔍 checkExistingAttendance using checkPeriodAttendanceOnly API:', params)
+      const response = await checkPeriodAttendanceOnly(params)
+      console.log('🔍 Full API response:', response)
+      console.log('🔍 response.existingAttendance:', response.existingAttendance)
+      console.log('🔍 response keys:', Object.keys(response))
       
-      // Check if any attendance exists for this period on this day
-      const existingRecord = attendanceRecords.find(record => record.period === selectedPeriod)
-      
-      if (existingRecord) {
-        console.log('🔍 Found existing attendance:', existingRecord)
-        return existingRecord
+      // Return the existing attendance data if found
+      if (response.existingAttendance) {
+        console.log('🔍 Found existing attendance:', response.existingAttendance)
+        return response.existingAttendance
       }
       
-      return false
+      console.log('❌ No existingAttendance found in response')
+      return null
     } catch (err) {
       console.error('❌ Error checking existing attendance:', err)
-      return false
+      return null
     }
   }
 
@@ -461,6 +493,8 @@ export default function Attendance() {
         // Show toast message - don't allow override
         showError('Attendance already marked for this period. Use "Modify Attendance" button to make changes.')
         setLoadingMark(false)
+        // Set existingAttendance state to enable modify button
+        setExistingAttendance(existingData)
         return
       }
       
@@ -659,7 +693,7 @@ export default function Attendance() {
 
           <motion.button
             whileTap={{ scale: 0.99 }}
-            disabled={!existingAttendance}
+            disabled={!canModify}
             onClick={openModifyDialog}
             className="rounded-xl bg-amber-500 px-4 py-2 text-sm font-medium text-white shadow-professional transition-all hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-300 disabled:opacity-50"
           >
@@ -721,7 +755,10 @@ export default function Attendance() {
 
       {/* Modify Attendance Dialog */}
       {modifyDialog.show && (
-        <motion.div
+        <>
+          {console.log('🔍 RENDERING MODIFY DIALOG - modifyDialog.show:', modifyDialog.show)}
+          {console.log('🔍 RENDERING MODIFY DIALOG - modifyDialog.existingData:', modifyDialog.existingData)}
+          <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -731,86 +768,87 @@ export default function Attendance() {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-xl p-6 max-w-2xl mx-4 shadow-xl max-h-[80vh] overflow-y-auto"
+            className="bg-white rounded-xl p-6 max-w-lg mx-4 shadow-xl"
           >
             <div className="text-center">
               <div className="mb-4">
-                <svg className="w-12 h-12 text-blue-500 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2H5a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-11a2 2 0 00-2-2zM11 13a1 1 0 011-1H6a1 1 0 01-1 1v3a1 1 0 011 1h5a1 1 0 011-1v-3a1 1 0 01-1-1z" />
-                </svg>
+                
+                <h3 className="text-lg font-semibold text-gray-900 mt-2">Modify Attendance</h3>
+                <p className="text-sm text-gray-600 mt-1">Update attendance for this period</p>
               </div>
-              
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Modify Attendance</h3>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+
+              {/* Read-only Information */}
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Current Subject</label>
+                    <label className="block font-medium text-gray-700 mb-1">Subject</label>
                     <input
                       type="text"
-                      value={modifyDialog.existingData?.subject || ''}
-                      disabled
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
+                      value={modifyDialog.existingData?.subject || selection.subject || 'N/A'}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                    />
+                    
+                  </div>
+                  <div>
+                    <label className="block font-medium text-gray-700 mb-1">Date</label>
+                    <input
+                      type="text"
+                      value={date}
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">Period</label>
+                    <label className="block font-medium text-gray-700 mb-1">Period</label>
                     <input
                       type="text"
                       value={selectedPeriod}
-                      disabled
-                      className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-slate-500"
+                      readOnly
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
                     />
                   </div>
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Current Absentees</label>
-                  <textarea
-                    value={modifyDialog.existingData?.absentees || ''}
-                    onChange={(e) => setModifyDialog({ 
-                      ...modifyDialog, 
-                      existingData: { ...modifyDialog.existingData, absentees: e.target.value }
-                    })}
-                    rows={3}
-                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
-                    placeholder="Enter absentees PINs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Current Presents</label>
-                  <textarea
-                    value={modifyDialog.existingData?.presents || ''}
-                    onChange={(e) => setModifyDialog({ 
-                      ...modifyDialog, 
-                      existingData: { ...modifyDialog.existingData, presents: e.target.value }
-                    })}
-                    rows={3}
-                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
-                    placeholder="Enter presents PINs"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Reason for Change (Optional)</label>
-                  <textarea
-                    value={modifyDialog.existingData?.reason || ''}
-                    onChange={(e) => setModifyDialog({ 
-                      ...modifyDialog, 
-                      existingData: { ...modifyDialog.existingData, reason: e.target.value }
-                    })}
-                    rows={2}
-                    className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200"
-                    placeholder="Explain why you're modifying this attendance"
-                  />
+              {/* Input Fields */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Update Attendance</label>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Absentees</label>
+                    <textarea
+                      value={modifyDialog.existingData?.absentees || ''}
+                      onChange={(e) => setModifyDialog(prev => ({
+                        ...prev,
+                        existingData: { ...prev.existingData, absentees: e.target.value, presents: '' }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                      placeholder="Enter PINs of absent students"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">Presents</label>
+                    <textarea
+                      value={modifyDialog.existingData?.presents || ''}
+                      onChange={(e) => setModifyDialog(prev => ({
+                        ...prev,
+                        existingData: { ...prev.existingData, presents: e.target.value, absentees: '' }
+                      }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      rows={3}
+                      placeholder="Enter PINs of present students"
+                    />
+                  </div>
                 </div>
               </div>
-              
-              <div className="flex gap-3 justify-center mt-6">
+
+              {/* Action Buttons */}
+              <div className="flex justify-center gap-3">
                 <button
                   onClick={() => setModifyDialog({ show: false, existingData: null })}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
                 >
                   Cancel
                 </button>
@@ -824,6 +862,7 @@ export default function Attendance() {
             </div>
           </motion.div>
         </motion.div>
+        </>
       )}
 
       {/* Local Toast Component */}
@@ -832,7 +871,7 @@ export default function Attendance() {
           initial={{ opacity: 0, y: 50, scale: 0.95 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 50, scale: 0.95 }}
-          className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg ${
+          className={`fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2 rounded-lg border shadow-lg max-w-sm ${
             toast.type === 'success' 
               ? 'bg-green-50 border-green-200 text-green-800' 
               : 'bg-red-50 border-red-200 text-red-800'
@@ -840,15 +879,15 @@ export default function Attendance() {
         >
           <div className="flex items-center gap-2">
             {toast.type === 'success' ? (
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             ) : (
-              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             )}
-            <span className="text-sm font-medium">{toast.message}</span>
+            <span className="text-xs font-medium whitespace-nowrap">{toast.message}</span>
           </div>
         </motion.div>
       )}

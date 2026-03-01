@@ -122,3 +122,25 @@ export async function getClassAttendance(params) {
   const { data } = await http.get('/api/attendance/class', { params })
   return data
 }
+
+export async function modifyAttendance(payload) {
+  const { data } = await http.put('/api/attendance/modify', payload)
+  return data
+}
+
+// New function to check attendance by period only (ignoring subject)
+export async function checkPeriodAttendanceOnly(params) {
+  // Create params without subject to force period-only checking
+  const periodOnlyParams = {
+    department: params.department,
+    semester: params.semester,
+    shift: params.shift,
+    date: params.date,
+    period: params.period
+    // NO subject parameter - backend should return all attendance for this period
+  }
+  
+  console.log('🔍 checkPeriodAttendanceOnly API call (PERIOD-ONLY):', periodOnlyParams)
+  const { data } = await http.get('/api/attendance/period-check', { params: periodOnlyParams })
+  return data
+}
