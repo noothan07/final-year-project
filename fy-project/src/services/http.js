@@ -49,18 +49,6 @@ http.interceptors.response.use(
     } else {
       console.error('HTTP Error:', status, data)
     }
-
-    // Specific validation check
-    if (
-      data?.message?.includes(
-        'These students are not in the selected class'
-      )
-    ) {
-      console.log(
-        '🔍 Found the validation error in HTTP interceptor!'
-      )
-    }
-
     return Promise.reject(error)
   }
 )
