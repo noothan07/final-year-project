@@ -1,24 +1,61 @@
 import Student from '../models/Student.js'
 import Attendance from '../models/Attendance.js'
 
+// Function to generate shortPin based on PIN pattern
+function generateShortPin(pin) {
+  // Convert to uppercase and trim
+  const normalizedPin = pin.toUpperCase().trim()
+  
+  // Check if PIN contains college code "010" after year
+  // Pattern: YY010-CM-XXX or YY010-CM-XX
+  const collegeCodePattern = /^\d{2}010-/i
+  
+  if (collegeCodePattern.test(normalizedPin)) {
+    // Extract the last 3 digits for standard format
+    const parts = normalizedPin.split('-')
+    const lastPart = parts[parts.length - 1]
+    return lastPart.padStart(3, '0').slice(-3)
+  } else {
+    // For other patterns (without 010), extract last 3 digits and prefix with 'T'
+    const parts = normalizedPin.split('-')
+    const lastPart = parts[parts.length - 1]
+    const numberPart = lastPart.match(/\d+/)
+    if (numberPart) {
+      const digits = numberPart[0].padStart(3, '0').slice(-3)
+      return `T${digits}`
+    }
+    // Fallback: if no numbers found, use last 3 characters
+    return `T${lastPart.slice(-3).padStart(3, '0')}`
+  }
+}
+
 export async function createStudent(req, res) {
   try {
-    const { pin, name, department, year, semester, shift } = req.body || {}
+    const { pin, name, department, year, semester, shift, shortPin } = req.body || {}
 
     // Validate required fields
     if (!pin || !name || !department || !year || !semester || !shift) {
       return res.status(400).json({ message: 'All required fields must be provided' })
     }
 
-    // Validate PIN format
-    if (!/^\d{4,6}$/.test(pin)) {
-      return res.status(400).json({ message: 'PIN must be a 4-6 digit number' })
+    // Validate PIN format - now accepts full format like "25010-CM-001"
+    if (!pin || typeof pin !== 'string' || pin.trim().length === 0) {
+      return res.status(400).json({ message: 'PIN is required' })
     }
 
-    // Validate department (only CME allowed)
-    if (department !== 'CME') {
+    // Auto-generate shortPin if not provided
+    let generatedShortPin = shortPin
+    if (!generatedShortPin) {
+      generatedShortPin = generateShortPin(pin)
+    }
+
+    // Validate department (only CME allowed) - case insensitive
+    if (department.toLowerCase() !== 'cme') {
       return res.status(400).json({ message: 'Only CME department is allowed' })
     }
+
+    // Store department in lowercase
+    const normalizedDepartment = department.toLowerCase()
 
     // Validate year format (should be 1st, 2nd, or 3rd year)
     if (!['1st year', '2nd year', '3rd year'].includes(year)) {
@@ -30,22 +67,36 @@ export async function createStudent(req, res) {
       return res.status(400).json({ message: 'Shift must be either "1st shift" or "2nd shift"' })
     }
 
-    const existing = await Student.findOne({ pin: String(pin).trim() })
+    const normalizedPin = pin.toUpperCase().trim()
+
+    const existing = await Student.findOne({ pin: normalizedPin })
     if (existing) {
-      return res.status(409).json({ message: 'PIN already exists' })
+      return res.status(409).json({
+        message: 'PIN already exists',
+        existingStudent: {
+          pin: existing.pin,
+          name: existing.name,
+          department: existing.department,
+          year: existing.year,
+          semester: existing.semester,
+          shift: existing.shift,
+          status: existing.status,
+        },
+      })
     }
 
     const student = await Student.create({ 
-      pin: String(pin).trim(), 
+      pin: normalizedPin, 
+      shortPin: generatedShortPin,
       name, 
-      department, 
+      department: normalizedDepartment, 
       year, 
       semester, 
       shift, 
       status: 'active'
     })
     
-    console.log('✅ Student created successfully:', { pin, name, department, year, semester, shift })
+    console.log('✅ Student created successfully:', { pin, shortPin: generatedShortPin, name, department: normalizedDepartment, year, semester, shift })
     return res.status(201).json({ student })
   } catch (error) {
     console.error('Create student error:', error)

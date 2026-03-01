@@ -5,21 +5,32 @@ export function getToken() {
 }
 
 export function setToken(token) {
-  if (!token) localStorage.removeItem('token')
-  else localStorage.setItem('token', token)
+  if (!token) {
+    localStorage.removeItem('token')
+  } else {
+    localStorage.setItem('token', token)
+  }
 }
 
 export const http = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
 })
 
 http.interceptors.request.use((config) => {
-  console.log('HTTP Request:', config.method?.toUpperCase(), config.url, config.data)
+  console.log(
+    'HTTP Request:',
+    config.method?.toUpperCase(),
+    config.url,
+    config.data
+  )
+
   const token = getToken()
+
   if (token) {
     config.headers = config.headers || {}
     config.headers.Authorization = `Bearer ${token}`
   }
+
   return config
 })
 
@@ -29,7 +40,15 @@ http.interceptors.response.use(
     return response
   },
   (error) => {
-    console.error('HTTP Error:', error.response?.status, error.response?.data)
+    const status = error.response?.status
+    const data = error.response?.data
+
+    // Handle validation-type errors
+    if (status === 400 || status === 409) {
+      console.warn('HTTP Error:', status, data)
+    } else {
+      console.error('HTTP Error:', status, data)
+    }
     return Promise.reject(error)
   }
 )
