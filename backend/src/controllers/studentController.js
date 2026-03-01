@@ -67,13 +67,26 @@ export async function createStudent(req, res) {
       return res.status(400).json({ message: 'Shift must be either "1st shift" or "2nd shift"' })
     }
 
-    const existing = await Student.findOne({ pin: pin.trim() })
+    const normalizedPin = pin.toUpperCase().trim()
+
+    const existing = await Student.findOne({ pin: normalizedPin })
     if (existing) {
-      return res.status(409).json({ message: 'PIN already exists' })
+      return res.status(409).json({
+        message: 'PIN already exists',
+        existingStudent: {
+          pin: existing.pin,
+          name: existing.name,
+          department: existing.department,
+          year: existing.year,
+          semester: existing.semester,
+          shift: existing.shift,
+          status: existing.status,
+        },
+      })
     }
 
     const student = await Student.create({ 
-      pin: pin.trim(), 
+      pin: normalizedPin, 
       shortPin: generatedShortPin,
       name, 
       department: normalizedDepartment, 
