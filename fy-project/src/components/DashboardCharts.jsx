@@ -51,7 +51,7 @@ const MonthlyAttendanceTrend = memo(({ data, loading }) => {
     >
       <div className="text-base font-semibold text-primary-blue mb-4">Monthly Attendance Trend</div>
       <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <LineChart data={data} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis 
             dataKey="month" 
@@ -118,7 +118,7 @@ const WeeklyAttendanceTrend = memo(({ data, loading }) => {
     >
       <div className="text-base font-semibold text-primary-blue mb-4">Weekly Attendance Trend</div>
       <ResponsiveContainer width="100%" height={250}>
-        <AreaChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <AreaChart data={data} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis 
             dataKey="day" 
@@ -242,7 +242,7 @@ const SubjectWisePerformance = memo(({ data, loading }) => {
     >
       <div className="text-base font-semibold text-primary-blue mb-4">Subject-wise Performance</div>
       <ResponsiveContainer width="100%" height={250}>
-        <BarChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+        <BarChart data={data} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
           <XAxis 
             dataKey="subject" 
@@ -302,10 +302,11 @@ const PeriodAttendanceHeatmap = memo(({ data, loading }) => {
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
   const getHeatmapColor = (attendance) => {
-    if (attendance >= 90) return 'bg-green-500'
-    if (attendance >= 75) return 'bg-blue-500'
-    if (attendance >= 60) return 'bg-yellow-500'
-    return 'bg-red-500'
+    if (attendance >= 90) return 'bg-green-300'
+    if (attendance >= 75) return 'bg-blue-300'
+    if (attendance >= 60) return 'bg-yellow-300'
+    if (attendance == 0) return 'bg-gray-300'
+    return 'bg-red-400'
   }
 
   return (
@@ -342,21 +343,21 @@ const PeriodAttendanceHeatmap = memo(({ data, loading }) => {
         <div className="grid grid-cols-8 gap-1 text-xs">
           <div className="p-2"></div> {/* Empty corner */}
           {periods.map((period, index) => (
-            <div key={period} className="p-2 text-center font-semibold text-gray-600">
+            <div key={period} className="p-2 text-center font-semibold text-black">
               P{index + 1}
             </div>
           ))}
           
           {days.map((day) => (
             <React.Fragment key={day}>
-              <div className="p-2 text-right font-semibold text-gray-600">{day}</div>
+              <div className="p-2 text-center font-semibold text-black bg-blue-200 rounded-sm">{day}</div>
               {periods.map((period, periodIndex) => {
                 const dayData = data.find(d => d.day === day)
                 const attendance = dayData?.[`period${periodIndex + 1}`] || 0
                 return (
                   <div
                     key={`${day}-${period}`}
-                    className={`p-2 text-center text-white rounded ${getHeatmapColor(attendance)}`}
+                    className={`p-2 text-center text-black rounded ${getHeatmapColor(attendance)}`}
                     title={`${day} - ${period}: ${attendance}%`}
                   >
                     {attendance}%

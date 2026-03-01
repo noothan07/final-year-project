@@ -428,7 +428,7 @@ export default function StudentManagement() {
 
   return (
     <>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-full overflow-x-hidden">
         {/* Selection Dropdowns */}
         <div className="rounded-2xl border border-blue-200 bg-white/90 backdrop-blur-sm p-6 shadow-professional">
           <div className="text-base font-semibold text-primary-blue">Student Selection</div>
@@ -498,7 +498,7 @@ export default function StudentManagement() {
 
         {/* Students List */}
         {students.length > 0 && (
-          <div className="rounded-2xl bg-white p-6 border-blue-200 border">
+          <div className="rounded-2xl bg-white p-6 border-blue-200 border max-w-full overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <div className="text-base font-semibold text-primary-blue">
                 Students List ({totalStudents} total)
@@ -508,8 +508,9 @@ export default function StudentManagement() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
+            <div className="-mx-6 sm:mx-0 max-w-full overflow-x-auto overflow-y-hidden overscroll-x-contain">
+              <div className="inline-block min-w-full align-middle pl-6 sm:px-0">
+                <table className="min-w-max sm:w-full divide-y divide-gray-200">
                 <thead className="bg-blue-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">PIN</th>
@@ -533,29 +534,32 @@ export default function StudentManagement() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
 
             {/* Pagination */}
             {totalStudents > studentsPerPage && (
-              <div className="flex items-center justify-between mt-4">
-                <div className="text-sm text-gray-700">
+              <div className="sticky bottom-0 mt-4 bg-white pt-3 border-t border-slate-200">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-gray-700 flex justify-center sm:justify-baseline mb-3 sm:mb-1">
                   Showing {((currentPage - 1) * studentsPerPage) + 1} to {Math.min(currentPage * studentsPerPage, totalStudents)} of {totalStudents} students
-                </div>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => loadStudents(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => loadStudents(currentPage + 1)}
-                    disabled={currentPage * studentsPerPage >= totalStudents}
-                    className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
+                  </div>
+                  <div className="flex justify-between space-x-2">
+                    <button
+                      onClick={() => loadStudents(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => loadStudents(currentPage + 1)}
+                      disabled={currentPage * studentsPerPage >= totalStudents}
+                      className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

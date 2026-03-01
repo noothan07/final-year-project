@@ -36,7 +36,7 @@ export default function Shell() {
   }
 
   return (
-    <div className="min-h-screen flex bg-linear-to-br from-blue-100 via-blue-50 to-indigo-50 sm:pt-15">
+    <div className="min-h-screen flex max-w-full overflow-x-hidden bg-linear-to-br from-blue-100 via-blue-50 to-indigo-50 sm:pt-15">
       {/* Left Sidebar - Desktop Only */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 lg:left-0 lg:z-50 lg:border-r lg:border-blue-100 lg:bg-white/95 lg:backdrop-blur-md lg:shadow-lg">
         {/* Logo Section */}
@@ -220,8 +220,8 @@ export default function Shell() {
 
 
       {/* Main Content Area */}
-      <main className="flex-1 lg:ml-64">
-        <div className="pt-35 lg:pt-0 mx-auto w-full max-w-6xl px-4 sm:px-0 py-6">
+      <main className="flex-1 min-w-0 lg:ml-64">
+        <div className="pt-35 lg:pt-0 mx-auto w-full max-w-6xl min-w-0 px-4 sm:px-0 py-6">
           <Outlet />
         </div>
       </main>
