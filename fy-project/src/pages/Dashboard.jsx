@@ -87,7 +87,7 @@ function Card({ title, value, sub, icon }) {
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="rounded-2xl border bg-white border-blue-200 p-6"
+      className="rounded-2xl border bg-white border-blue-200 p-6 shadow-professional"
     >
       <div className="flex items-start justify-between">
         <div className="flex-1">
@@ -487,8 +487,8 @@ export default function Dashboard() {
 
   return (
     <>
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-      <div className="rounded-2xl bg-white  p-6 border-blue-200 border">
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 ">
+      <div className="rounded-2xl bg-white  p-6 border-blue-200 border shadow-professional">
         <div className="text-base font-semibold text-primary-blue">Class & Date</div>
         <div className="mt-1 text-sm text-slate-600">
           Select a class and subject to view summary cards.

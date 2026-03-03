@@ -592,13 +592,45 @@ export default function Reports() {
                     </td>
                     {weeklyReport.weekDates.map((date, dateIndex) => (
                       ['P1', 'P2', 'P3', 'P4', 'P5', 'P6', 'P7'].map((period, periodIndex) => {
-                        const isPresent = weeklyReport.registerData[date.date]?.[student.pin]?.[periodIndex]
+                        const dateKey = date.date
+                        const studentKey = student.pin
+                        const periodKey = periodIndex
+                        
+                        // Get the attendance data for this specific student and period
+                        const attendanceData = weeklyReport.registerData[dateKey]?.[studentKey]?.[periodKey]
+                        
+                        // Check if this date has any attendance records at all
+                        // We need to check if any student has true (present) for any period on this date
+                        // If all values are false, it means no attendance was recorded
+                        const dateHasAttendance = weeklyReport.registerData[dateKey] && 
+                                                  Object.values(weeklyReport.registerData[dateKey]).some(studentData => 
+                                                    studentData && studentData.some(periodData => periodData === true)
+                                                  )
+                        
+                        // Determine what to display
+                        let displayValue, displayClass
+                        if (!dateHasAttendance) {
+                          // No attendance recorded for this date at all
+                          displayValue = '-'
+                          displayClass = 'text-slate-400'
+                        } else if (attendanceData === true) {
+                          // Present
+                          displayValue = '✓'
+                          displayClass = 'text-green-600'
+                        } else if (attendanceData === false) {
+                          // Absent (recorded)
+                          displayValue = '✕'
+                          displayClass = 'text-red-600'
+                        } else {
+                          // Fallback - no data
+                          displayValue = '-'
+                          displayClass = 'text-slate-400'
+                        }
+                        
                         return (
                           <td key={`${student.pin}-${dateIndex}-${periodIndex}`} className="border-b border-blue-100 border-r border-blue-200 px-2 py-2 text-center">
-                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-sm font-bold ${
-                              isPresent ? '' : 'text-red-600 bg-red-100'
-                            }`}>
-                              {isPresent ? 'P' : 'A'}
+                            <span className={`inline-flex items-center justify-center w-5 h-5 rounded text-sm font-bold ${displayClass}`}>
+                              {displayValue}
                             </span>
                           </td>
                         )

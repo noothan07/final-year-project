@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { getStudents, markAttendance as markAttendanceAPI, getClassAttendance, checkPeriodAttendanceOnly, modifyAttendance as modifyAttendanceAPI } from '../services/api'
 import { useClassSelection } from '../context/ClassContext'
+import ConfirmDialog from '../components/ConfirmDialog'
 
 // Simple Dropdown Component
 function SimpleDropdown({ label, value, onChange, options, placeholder, disabled = false, helperText = '' }) {
@@ -53,8 +54,7 @@ const SEMESTERS = [
   { value: '2nd semester', label: '2nd Semester' },
   { value: '3rd semester', label: '3rd Semester' },
   { value: '4th semester', label: '4th Semester' },
-  { value: '5th semester', label: '5th Semester' },
-  { value: '6th semester', label: '6th Semester' }
+  { value: '5th semester', label: '5th Semester' }
 ]
 const SHIFTS = [
   { value: '1st shift', label: '1st Shift' },
@@ -74,6 +74,7 @@ export default function Attendance() {
   const { selection, setSelection } = useClassSelection()
   const [toast, setToast] = useState({ message: '', type: '', visible: false })
   const [modifyDialog, setModifyDialog] = useState({ show: false, existingData: null })
+  const [confirmDialog, setConfirmDialog] = useState({ show: false, onConfirm: null })
   const [selectedPeriod, setSelectedPeriod] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [absentees, setAbsentees] = useState('')
@@ -479,7 +480,6 @@ export default function Attendance() {
       console.log('🔍 markAttendance blocked - canMark is false')
       return
     }
-    setLoadingMark(true)
     
     console.log('🔍 Mark Attendance button clicked')
     
@@ -492,15 +492,14 @@ export default function Attendance() {
         console.log('🔍 Attendance exists - showing toast and blocking override')
         // Show toast message - don't allow override
         showError('Attendance already marked for this period. Use "Modify Attendance" button to make changes.')
-        setLoadingMark(false)
         // Set existingAttendance state to enable modify button
         setExistingAttendance(existingData)
         return
       }
       
-      console.log('🔍 No existing attendance - proceeding to mark new attendance')
+      console.log('🔍 No existing attendance - validating PINs before confirmation')
       
-      // No existing attendance - proceed normally
+      // No existing attendance - validate PINs first before showing confirmation
       const pinList = (absentees.trim() || presents.trim()).split(',').map(pin => pin.trim())
       console.log('🔍 Short PINs:', pinList)
       
@@ -514,6 +513,28 @@ export default function Attendance() {
         showError(`Invalid PINs: ${invalidPINs.join(', ')}`)
         return
       }
+      
+      // If we reach here, all validation passed - show confirmation dialog
+      const confirmMessage = attendanceMode === 'absentees' 
+        ? `Mark ${pinList.length} student(s) as absent for ${selection.subject} - ${selectedPeriod}?`
+        : `Mark ${pinList.length} student(s) as present for ${selection.subject} - ${selectedPeriod}?`
+      
+      setConfirmDialog({
+        show: true,
+        onConfirm: () => executeMarkAttendance(pinList)
+      })
+      
+    } catch (err) {
+      console.error('❌ Attendance validation error:', err)
+      showError(err?.response?.data?.message || 'Failed to validate attendance')
+    }
+  }
+  
+  async function executeMarkAttendance(pinList) {
+    setLoadingMark(true)
+    
+    try {
+      console.log('🔍 Proceeding to mark attendance with validated PINs:', pinList)
       
       const fullPinList = pinList.map(shortPin => {
         // Find student with this short PIN and get their full PIN
@@ -564,14 +585,13 @@ export default function Attendance() {
           Select class, subject, and date to mark attendance.
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 overflow-visible">
+        <div className="mt-4 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 overflow-visible">
           <SimpleDropdown
             label="Department"
             value={selection.department}
             onChange={handleDepartmentChange}
             options={DEPARTMENTS}
             placeholder="Select Department"
-            helperText="Only CME is available"
           />
           
           <SimpleDropdown
@@ -581,7 +601,6 @@ export default function Attendance() {
             options={SEMESTERS}
             placeholder="Select Semester"
             disabled={!selection.department || selection.department !== 'cme'}
-            helperText={!selection.department ? "Select department first" : "Select semester"}
           />
           
           <SimpleDropdown
@@ -590,7 +609,6 @@ export default function Attendance() {
             onChange={handleShiftChange}
             options={SHIFTS}
             placeholder="Select Shift"
-            helperText="Select class shift"
           />
           
           <SimpleDropdown
@@ -600,7 +618,6 @@ export default function Attendance() {
             options={subjectOptions}
             placeholder="Select Subject"
             disabled={!selection.year || selection.department !== 'cme'}
-            helperText={!selection.year ? "Select semester first" : "Available subjects for CME"}
           />
           
           <SimpleDropdown
@@ -609,7 +626,6 @@ export default function Attendance() {
             onChange={handlePeriodChange}
             options={PERIODS}
             placeholder="Select Period"
-            helperText="Select the period you are teaching"
           />
           
           <div>
@@ -623,7 +639,6 @@ export default function Attendance() {
               max={new Date().toISOString().split('T')[0]}
               className="w-full rounded-xl border border-blue-200 bg-white/80 px-3 py-2 text-sm outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
             />
-            <p className="text-xs text-slate-500 mt-1">Select attendance date</p>
           </div>
         </div>
 
@@ -763,23 +778,23 @@ export default function Attendance() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 flex items-center justify-center z-50 bg-blue-200/30 backdrop-blur-[5px]"
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
-            className="bg-white rounded-xl p-6 max-w-lg mx-4 shadow-xl"
+            className="bg-white rounded-xl p-6 max-w-lg mx-4 shadow-xl border border-blue-300"
           >
             <div className="text-center">
               <div className="mb-4">
                 
-                <h3 className="text-lg font-semibold text-gray-900 mt-2">Modify Attendance</h3>
+                <h3 className="text-xl font-semibold text-blue-600 mt-2">Modify Attendance</h3>
                 <p className="text-sm text-gray-600 mt-1">Update attendance for this period</p>
               </div>
 
               {/* Read-only Information */}
-              <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+              <div className="mb-6 p-4 bg-blue-100 rounded-lg">
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <label className="block font-medium text-gray-700 mb-1">Subject</label>
@@ -787,7 +802,7 @@ export default function Attendance() {
                       type="text"
                       value={modifyDialog.existingData?.subject || selection.subject || 'N/A'}
                       readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 outline-0 text-center"
                     />
                     
                   </div>
@@ -797,7 +812,7 @@ export default function Attendance() {
                       type="text"
                       value={date}
                       readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 outline-0 text-center"
                     />
                   </div>
                   <div>
@@ -806,7 +821,7 @@ export default function Attendance() {
                       type="text"
                       value={selectedPeriod}
                       readOnly
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 outline-0 text-center"
                     />
                   </div>
                 </div>
@@ -814,7 +829,6 @@ export default function Attendance() {
 
               {/* Input Fields */}
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Update Attendance</label>
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-600 mb-1">Absentees</label>
@@ -824,7 +838,7 @@ export default function Attendance() {
                         ...prev,
                         existingData: { ...prev.existingData, absentees: e.target.value, presents: '' }
                       }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-blue-200 rounded-md outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
                       rows={3}
                       placeholder="Enter PINs of absent students"
                     />
@@ -837,7 +851,7 @@ export default function Attendance() {
                         ...prev,
                         existingData: { ...prev.existingData, presents: e.target.value, absentees: '' }
                       }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-blue-200 rounded-md outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
                       rows={3}
                       placeholder="Enter PINs of present students"
                     />
@@ -849,7 +863,7 @@ export default function Attendance() {
               <div className="flex justify-center gap-3">
                 <button
                   onClick={() => setModifyDialog({ show: false, existingData: null })}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
                 >
                   Cancel
                 </button>
@@ -892,6 +906,26 @@ export default function Attendance() {
           </div>
         </motion.div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.show}
+        onClose={() => setConfirmDialog({ show: false, onConfirm: null })}
+        onConfirm={() => {
+          if (confirmDialog.onConfirm) {
+            confirmDialog.onConfirm()
+          }
+          setConfirmDialog({ show: false, onConfirm: null })
+        }}
+        title="Confirm Mark Attendance"
+        message={confirmDialog.show ? (attendanceMode === 'absentees' 
+          ? `Mark ${(absentees.trim() || presents.trim()).split(',').filter(pin => pin.trim()).length} student(s) as absent for ${selection.subject} - ${selectedPeriod}?`
+          : `Mark ${(absentees.trim() || presents.trim()).split(',').filter(pin => pin.trim()).length} student(s) as present for ${selection.subject} - ${selectedPeriod}?`
+        ) : ''}
+        confirmText="Mark Attendance"
+        cancelText="Cancel"
+        type="success"
+      />
     </motion.div>
     </>
   )

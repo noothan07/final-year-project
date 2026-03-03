@@ -353,7 +353,7 @@ export default function Staff() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
-              className="bg-white rounded-2xl border border-blue-200 p-4 sm:p-6 mb-6 sm:mb-8"
+              className="bg-white rounded-2xl border border-blue-200 p-4 sm:p-6 mb-6 sm:mb-8 shadow-professional"
             >
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                 <h2 className="text-lg sm:text-xl font-semibold text-gray-800 flex items-center">
@@ -499,7 +499,7 @@ export default function Staff() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="bg-white rounded-2xl border border-blue-200 p-4 sm:p-6"
+            className="bg-white rounded-2xl border border-blue-200 p-4 sm:p-6 shadow-professional"
           >
             <div className="flex items-center mb-4 sm:mb-6">
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
