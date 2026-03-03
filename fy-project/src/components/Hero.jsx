@@ -13,7 +13,7 @@ export default function Hero() {
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-6">
             Smart Attendance, <span className="text-blue-600">Simplified</span>
           </h1>
-          <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
+          <p className="text-md sm:text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
             Mark attendance faster, reduce errors, and track student performance digitally.
           </p>
 

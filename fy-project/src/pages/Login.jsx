@@ -87,7 +87,7 @@ export default function Login() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
-          <div className="rounded-2xl border border-blue-100 bg-white/90 backdrop-blur-sm p-8 shadow-professional-lg">
+          <div className="rounded-2xl border border-blue-200 bg-white/90 backdrop-blur-sm p-8 shadow-professional-lg">
             <div className="mb-8 flex flex-col items-center text-center">
               <div className="mb-4 h-16 w-16 rounded-full bg-blue-600 flex items-center justify-center">
                 <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,7 +157,7 @@ export default function Login() {
 
             <div className="mt-6 text-center">
               <p className="text-xs text-slate-500">
-                Attendance Marker System © 2026
+                Smart Attendance System © 2026
               </p>
             </div>
           </div>

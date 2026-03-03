@@ -170,11 +170,11 @@ export default function StudentAttendance() {
 
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-linear-to-br from-blue-100 via-blue-50 to-indigo-50 bg-grid">
       {/* Header */}
       <div className="bg-white/90 backdrop-blur-sm shadow-sm border-b border-blue-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-center py-4 sm:py-0 sm:h-16 space-y-3 sm:space-y-0">
+          <div className="flex flex-row justify-between items-center py-4 sm:py-0 sm:h-20 space-y-3 sm:space-y-0">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,14 +198,14 @@ export default function StudentAttendance() {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 ">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-2xl sm:text-4xl font-bold text-slate-900 mb-4">
+          <h1 className="text-2xl sm:text-4xl font-bold text-primary-blue mb-2">
             Student Attendance View
           </h1>
           <p className="text-md text-slate-600">
@@ -218,9 +218,9 @@ export default function StudentAttendance() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.1 }}
-          className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200 mb-8"
+          className="bg-white rounded-2xl p-8 border border-blue-200 mb-8"
         >
-          <h2 className="text-xl font-semibold text-slate-900 mb-6">Search Your Attendance</h2>
+          <h2 className="text-xl text-center sm-text-left font-semibold text-black mb-6">Search Your Attendance</h2>
           
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
             <div>
@@ -230,7 +230,7 @@ export default function StudentAttendance() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value.toUpperCase())}
                 placeholder="e.g 23010-CM-041"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 border border-blue-200 rounded-lg outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
               />
               
             </div>
@@ -240,7 +240,7 @@ export default function StudentAttendance() {
               <select
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 border border-blue-200 rounded-lg outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
               >
                 <option value="">Select Department</option>
                 {departments.map((dept) => (
@@ -261,7 +261,7 @@ export default function StudentAttendance() {
               <select
                 value={semester}
                 onChange={(e) => setSemester(e.target.value)}
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-4 py-2 border border-blue-200 rounded-lg outline-none transition-all focus:border-blue-400 focus:ring-2 focus:ring-blue-200 focus:bg-white"
               >
                 <option value="">Select Semester</option>
                 {semesters.map((sem) => (
@@ -291,7 +291,7 @@ export default function StudentAttendance() {
             className="space-y-8"
           >
             {/* Summary Card */}
-            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 sm:p-8 border border-blue-100 shadow-sm">
+            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-2xl p-6 sm:p-8 border border-blue-200 ">
               {/* Student Info Card */}
               {attendanceData?.student?.name && (
                 <div className="bg-white rounded-xl p-4 mb-6 shadow-sm border border-slate-200">
@@ -336,7 +336,7 @@ export default function StudentAttendance() {
                 </div>
               )}
               
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 space-y-4 sm:space-y-0 border-blue-200">
                 <div>
                   <h3 className="text-xl font-semibold text-slate-900">Attendance Summary</h3>
                 </div>
@@ -413,14 +413,14 @@ export default function StudentAttendance() {
             </div>
 
             {/* Monthly Breakdown */}
-            <div className="bg-white rounded-2xl p-8 shadow-sm border border-slate-200">
+            <div className="bg-white rounded-2xl p-8 border border-blue-200">
               <h3 className="text-xl font-semibold text-slate-900 mb-6">Monthly Breakdown</h3>
               
               <div className="space-y-4">
                 {attendanceData?.monthlyBreakdown?.map((month, index) => (
-                  <div key={index} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+                  <div key={index} className="flex items-center justify-between p-4 bg-blue-50 rounded-xl">
                     <div className="flex items-center space-x-4">
-                      <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <div className="w-12 h-12 bg-blue-200 rounded-xl flex items-center justify-center">
                         <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
@@ -450,7 +450,7 @@ export default function StudentAttendance() {
             </div>
 
             {/* Info Card */}
-            <div className="bg-blue-50 rounded-2xl p-6 border border-blue-200">
+            <div className="bg-gray-50 rounded-2xl p-6 border border-blue-200">
               <div className="flex items-start">
                 <svg className="w-6 h-6 text-blue-600 mt-1 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

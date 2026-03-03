@@ -52,3 +52,9 @@ body,
 .shadow-professional-lg {
   box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1), 0 4px 6px -2px rgba(37, 99, 235, 0.05);
 }
+
+/* Subtle dot-grid background for pages */
+.bg-grid {
+  background-image: radial-gradient(circle, rgba(0, 110, 255, 0.297) 1px, transparent 1px);
+  background-size: 30px 30px;
+}

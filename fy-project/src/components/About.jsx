@@ -83,11 +83,11 @@ export default function About() {
               </p>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="bg-white rounded-xl p-4">
-                  <div className="text-2xl font-bold text-blue-600">500+</div>
+                  <div className="text-2xl font-bold text-blue-600">330+</div>
                   <div className="text-gray-600">Students Managed</div>
                 </div>
                 <div className="bg-white rounded-xl p-4">
-                  <div className="text-2xl font-bold text-green-600">50+</div>
+                  <div className="text-2xl font-bold text-green-600">10+</div>
                   <div className="text-gray-600">Faculty Users</div>
                 </div>
                 <div className="bg-white rounded-xl p-4">

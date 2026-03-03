@@ -52,7 +52,7 @@ const MonthlyAttendanceTrend = memo(({ data, loading }) => {
       <div className="text-base font-semibold text-primary-blue mb-4">Monthly Attendance Trend</div>
       <ResponsiveContainer width="100%" height={250}>
         <LineChart data={data} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#4DBDFF" />
           <XAxis 
             dataKey="month" 
             tick={{ fontSize: 12 }}
@@ -277,7 +277,7 @@ const SubjectWisePerformance = memo(({ data, loading }) => {
 const PeriodAttendanceHeatmap = memo(({ data, loading }) => {
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white border border-blue-200 p-6 shadow-professional">
+      <div className="rounded-2xl bg-white border border-blue-200 p-3 sm:p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue mb-4">Period-wise Attendance Analysis</div>
         <div className="h-64 flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -288,7 +288,7 @@ const PeriodAttendanceHeatmap = memo(({ data, loading }) => {
 
   if (!data || data.length === 0) {
     return (
-      <div className="rounded-2xl bg-white border border-blue-200 p-6 shadow-professional">
+      <div className="rounded-2xl bg-white border border-blue-200 p-3 sm:p-6 shadow-professional">
         <div className="text-base font-semibold text-primary-blue mb-4">Period-wise Attendance Analysis</div>
         <div className="h-64 flex items-center justify-center text-gray-500">
           No data available
@@ -314,7 +314,7 @@ const PeriodAttendanceHeatmap = memo(({ data, loading }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.6 }}
-      className="rounded-2xl bg-white border border-blue-200 p-6 shadow-professional"
+      className="rounded-2xl bg-white border border-blue-200 p-3 sm:p-6 shadow-professional"
     >
       <div className="text-base font-semibold text-primary-blue mb-4">Period-wise Attendance Analysis</div>
       
@@ -341,9 +341,9 @@ const PeriodAttendanceHeatmap = memo(({ data, loading }) => {
 
         {/* Heatmap Grid */}
         <div className="grid grid-cols-8 gap-1 text-xs">
-          <div className="p-2"></div> {/* Empty corner */}
+          <div className="p-2 text-center font-semibold text-black bg-blue-200 rounded-sm">DAY</div> {/* Empty corner */}
           {periods.map((period, index) => (
-            <div key={period} className="p-2 text-center font-semibold text-black">
+            <div key={period} className="p-2 text-center font-semibold text-black bg-blue-200 rounded-sm">
               P{index + 1}
             </div>
           ))}
