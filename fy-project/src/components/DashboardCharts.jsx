@@ -119,7 +119,7 @@ const WeeklyAttendanceTrend = memo(({ data, loading }) => {
       <div className="text-base font-semibold text-primary-blue mb-4">Weekly Attendance Trend</div>
       <ResponsiveContainer width="100%" height={250}>
         <AreaChart data={data} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#4DBDFF" />
           <XAxis 
             dataKey="day" 
             tick={{ fontSize: 12 }}
@@ -183,7 +183,7 @@ const TodayAttendanceOverview = memo(({ data, loading }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, delay: 0.2 }}
-      className="rounded-2xl bg-white border border-blue-200 p-6 shadow-professional"
+      className="rounded-2xl bg-white border border-blue-200 p-4 sm:p-6 shadow-professional"
     >
       <div className="text-base font-semibold text-primary-blue mb-4">Today's Attendance Overview</div>
       <ResponsiveContainer width="100%" height={250}>
@@ -193,10 +193,22 @@ const TodayAttendanceOverview = memo(({ data, loading }) => {
             cx="50%"
             cy="50%"
             labelLine={false}
-            label={(entry) => `${entry.name}: ${entry.value}%`}
-            outerRadius={80}
+            label={(entry) => {
+              // On mobile, show shorter labels or only values
+              const isMobile = window.innerWidth < 640
+              if (isMobile) {
+                return `${entry.value}%`
+              }
+              return `${entry.name}: ${entry.value}%`
+            }}
+            outerRadius={70}
             fill="#8884d8"
             dataKey="value"
+            labelPosition="outside"
+            labelStyle={{
+              fontSize: window.innerWidth < 640 ? '10px' : '12px',
+              fontWeight: '500'
+            }}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -205,6 +217,21 @@ const TodayAttendanceOverview = memo(({ data, loading }) => {
           <Tooltip />
         </PieChart>
       </ResponsiveContainer>
+      
+      {/* Mobile-friendly legend below the chart */}
+      <div className="flex justify-center space-x-4 sm:hidden">
+        {data.map((entry, index) => (
+          <div key={entry.name} className="flex items-center space-x-2">
+            <div 
+              className="w-3 h-3 rounded-full" 
+              style={{ backgroundColor: COLORS[index % COLORS.length] }}
+            ></div>
+            <span className="text-xs font-medium text-gray-700">
+              {entry.name}: {entry.value}%
+            </span>
+          </div>
+        ))}
+      </div>
     </motion.div>
   )
 })
@@ -243,7 +270,7 @@ const SubjectWisePerformance = memo(({ data, loading }) => {
       <div className="text-base font-semibold text-primary-blue mb-4">Subject-wise Performance</div>
       <ResponsiveContainer width="100%" height={250}>
         <BarChart data={data} margin={{ top: 5, right: 30, left: -20, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <CartesianGrid strokeDasharray="3 3" stroke="#4DBDFF" />
           <XAxis 
             dataKey="subject" 
             tick={{ fontSize: 12 }}

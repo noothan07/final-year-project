@@ -146,7 +146,7 @@ export default function Shell() {
 
       {/* Fixed Mobile Navigation */}
       <nav className="fixed top-15 left-0 right-0 z-40 border-t border-blue-100 bg-white/95 backdrop-blur-md shadow-lg md:hidden">
-        <div className="mx-auto flex max-w-6xl items-center justify-center gap-1 px-2 py-3">
+        <div className="mx-0 flex max-w-7xl items-center justify-around gap-2 px-2 py-3 overflow-x-scroll">
 
           <NavLink
             to="/attendance"
