@@ -58,3 +58,53 @@ body,
   background-image: radial-gradient(circle, rgba(0, 110, 255, 0.297) 1px, transparent 1px);
   background-size: 30px 30px;
 }
+
+/* Remove focus outline from charts and interactive elements */
+.recharts-wrapper,
+.recharts-surface,
+.recharts-responsive-container,
+.recharts-tooltip-wrapper,
+.motion-div,
+[class*="recharts"],
+.recharts-cartesian-grid,
+.recharts-bar-category-gap,
+.recharts-rectangle,
+.recharts-legend-item,
+.recharts-tooltip-item,
+.recharts-label,
+.recharts-text {
+  outline: none !important;
+}
+
+/* Remove focus outline from all chart-related elements */
+svg:focus,
+svg:focus-visible,
+.recharts-svg:focus,
+.recharts-svg:focus-visible {
+  outline: none !important;
+}
+
+/* Remove focus outline from specific chart elements */
+.recharts-line,
+.recharts-area,
+.recharts-pie,
+.recharts-bar,
+.recharts-bar-rectangle,
+.recharts-dot,
+.recharts-active-dot {
+  outline: none !important;
+}
+
+/* Remove focus outline from tooltip and legend */
+.recharts-tooltip,
+.recharts-legend-wrapper {
+  outline: none !important;
+}
+
+/* Remove focus from all elements inside charts */
+.recharts-wrapper *,
+.recharts-surface *,
+.recharts-responsive-container * {
+  outline: none !important;
+  box-shadow: none !important;
+}
